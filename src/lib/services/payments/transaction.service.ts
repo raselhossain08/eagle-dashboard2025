@@ -1,4 +1,4 @@
-import { TokenUtils } from '../../utils/token.utils';
+// TokenUtils removed - using cookie-based auth
 
 export interface PaymentMethod {
   type: 'card' | 'bank_transfer' | 'paypal' | 'stripe' | 'wallet' | 'crypto' | 'other';

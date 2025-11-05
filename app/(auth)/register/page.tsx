@@ -3,7 +3,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/components/providers';
+import { useAuth } from '@/lib/hooks/use-auth';
+import AuthService from '@/lib/services/auth/auth.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,8 +24,6 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const { register, loading } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -89,7 +88,7 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     
     try {
-      await register({
+      await AuthService.register({
         name: formData.name.trim(),
         email: formData.email,
         password: formData.password,
@@ -97,13 +96,14 @@ export default function RegisterPage() {
       });
     } catch (error) {
       console.error('Registration error:', error);
-      // Error is already handled in the auth context
+      // Handle registration error
+      setErrors({ general: 'Registration failed. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isLoading = loading || isSubmitting;
+  const formIsLoading = isSubmitting;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
@@ -128,7 +128,7 @@ export default function RegisterPage() {
                   value={formData.name}
                   onChange={handleInputChange}
                   className={`pl-10 ${errors.name ? 'border-red-500' : ''}`}
-                  disabled={isLoading}
+                  disabled={formIsLoading}
                 />
               </div>
               {errors.name && (
@@ -148,7 +148,7 @@ export default function RegisterPage() {
                   value={formData.email}
                   onChange={handleInputChange}
                   className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
-                  disabled={isLoading}
+                  disabled={formIsLoading}
                 />
               </div>
               {errors.email && (
@@ -168,13 +168,13 @@ export default function RegisterPage() {
                   value={formData.password}
                   onChange={handleInputChange}
                   className={`pl-10 pr-10 ${errors.password ? 'border-red-500' : ''}`}
-                  disabled={isLoading}
+                  disabled={formIsLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600"
-                  disabled={isLoading}
+                  disabled={formIsLoading}
                 >
                   {showPassword ? <EyeOff /> : <Eye />}
                 </button>
@@ -196,13 +196,13 @@ export default function RegisterPage() {
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                   className={`pl-10 pr-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
-                  disabled={isLoading}
+                  disabled={formIsLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-3 h-4 w-4 text-gray-400 hover:text-gray-600"
-                  disabled={isLoading}
+                  disabled={formIsLoading}
                 >
                   {showConfirmPassword ? <EyeOff /> : <Eye />}
                 </button>
@@ -222,7 +222,7 @@ export default function RegisterPage() {
                     target: { name: 'acceptTerms', type: 'checkbox', checked: Boolean(checked) }
                   } as React.ChangeEvent<HTMLInputElement>)
                 }
-                disabled={isLoading}
+                disabled={formIsLoading}
               />
               <Label
                 htmlFor="acceptTerms"
@@ -245,9 +245,9 @@ export default function RegisterPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading}
+              disabled={formIsLoading}
             >
-              {isLoading ? (
+              {formIsLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating Account...

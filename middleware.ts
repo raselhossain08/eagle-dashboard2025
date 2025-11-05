@@ -1,141 +1,173 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { jwtDecode } from 'jwt-decode';
+// middleware.ts
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { getTokenFromRequest, getUserDataFromRequest, TOKEN_NAME, USER_DATA_NAME, REFRESH_TOKEN_NAME } from '@/lib/utils/server-cookies'
 
-interface JWTPayload {
-  id: string;
-  email: string;
-  role: string;
-  iat: number;
-  exp: number;
-}
+// Define routes
+const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/api/auth', '/register', '/verify', '/.well-known']
+const authRoutes = ['/login', '/register', '/forgot-password', '/reset-password']
+const protectedRoutes = ['/', '/dashboard', '/admin', '/users', '/billing', '/security', '/analytics', '/settings']
 
-// Routes that require authentication
-const protectedRoutes = [
-  '/subscriptions',
-  '/plans',
-  '/contracts',
-  '/analytics',
-  '/audit',
-  '/contract-templates',
-  '/discounts',
-  '/invoices',
-  '/payment-methods',
-  '/roles',
-  '/signatures',
-  '/subscriber-profiles',
-  '/system-settings',
-  '/transactions',
-  '/webhooks',
-  '/api/protected',
-];
+// Routes to completely ignore (browser/devtools requests)
+const ignoreRoutes = [
+  '/.well-known',
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/_next',
+  '/api/health'
+]
 
-// Routes that should redirect to home if user is authenticated
-const authRoutes = [
-  '/login',
-  '/auth/register',
-  '/auth/forgot-password',
-  '/auth/reset-password',
-  '/auth/verify',
-];
-
-// Admin only routes
-const adminRoutes = [
-  '/admin',
-  '/roles',
-  '/system-settings',
-  '/audit',
-  '/subscriber-profiles',
-];
-
-// Public routes that don't require authentication
-const publicRoutes = [
-  '/',
-  '/api/auth',
-  '/debug',
-];
-
-function isTokenExpired(token: string): boolean {
-  try {
-    const decoded = jwtDecode<JWTPayload>(token);
-    const currentTime = Date.now() / 1000;
-    return decoded.exp < currentTime;
-  } catch (error) {
-    return true;
-  }
-}
-
-function getUserRole(token: string): string | null {
-  try {
-    const decoded = jwtDecode<JWTPayload>(token);
-    return decoded.role;
-  } catch (error) {
-    return null;
-  }
-}
-
-function isRouteProtected(pathname: string): boolean {
-  // Root path is protected, so check for it specifically
-  if (pathname === '/') return true;
-  return protectedRoutes.some(route => pathname.startsWith(route));
-}
-
-function isAuthRoute(pathname: string): boolean {
-  return authRoutes.some(route => pathname.startsWith(route));
-}
-
-function isAdminRoute(pathname: string): boolean {
-  return adminRoutes.some(route => pathname.startsWith(route));
-}
-
-function isPublicRoute(pathname: string): boolean {
-  return publicRoutes.some(route => pathname.startsWith(route));
-}
-
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const token = request.cookies.get('AdminToken')?.value;
-
-  // Allow public routes
-  if (isPublicRoute(pathname)) {
-    return NextResponse.next();
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  
+  // Skip middleware for browser/devtools requests
+  const shouldIgnore = ignoreRoutes.some(route => pathname.startsWith(route))
+  if (shouldIgnore) {
+    return NextResponse.next()
   }
 
-  // Check if user has valid token
-  const isAuthenticated = token && !isTokenExpired(token);
-  const userRole = token ? getUserRole(token) : null;
+  const token = getTokenFromRequest(request)
 
-  // Handle auth routes (login, register, etc.)
-  if (isAuthRoute(pathname)) {
-    if (isAuthenticated) {
-      // Redirect authenticated users away from auth pages to root
-      return NextResponse.redirect(new URL('/', request.url));
+  // Check if current route is public
+  const isPublicRoute = publicRoutes.some(route => 
+    pathname.startsWith(route)
+  )
+
+  const isAuthRoute = authRoutes.some(route => 
+    pathname.startsWith(route)
+  )
+  
+  console.log(`🔍 Middleware check: ${pathname}`)
+  console.log(`   Token: ${token ? `EXISTS (${token.substring(0, 20)}...)` : 'NONE'}`)
+  console.log(`   Is public route: ${isPublicRoute}`)
+  console.log(`   Is auth route: ${isAuthRoute}`)
+  console.log(`   JWT_SECRET available: ${!!process.env.JWT_SECRET}`)
+  
+  // If token exists, let's also check the user data
+  if (token) {
+    const userData = getUserDataFromRequest(request)
+    console.log(`   User data: ${userData ? 'EXISTS' : 'NONE'}`)
+    if (userData) {
+      console.log(`   User role: ${userData.role || userData.adminLevel || 'UNKNOWN'}`)
+      console.log(`   User ID: ${userData.id}`)
+      console.log(`   User email: ${userData.email}`)
     }
-    return NextResponse.next();
   }
 
-  // Handle protected routes
-  if (isRouteProtected(pathname)) {
-    if (!isAuthenticated) {
-      // Redirect unauthenticated users to login
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
+  const isApiRoute = pathname.startsWith('/api')
+
+  // Handle API routes
+  if (isApiRoute) {
+    // Allow public API routes
+    if (pathname.startsWith('/api/auth')) {
+      return NextResponse.next()
     }
 
-    // Check admin routes
-    if (isAdminRoute(pathname)) {
-      if (userRole !== 'admin' && userRole !== 'super_admin') {
-        // Redirect non-admin users to home page
-        return NextResponse.redirect(new URL('/', request.url));
+    // Protect other API routes
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Unauthorized' }, 
+        { status: 401 }
+      )
+    }
+
+    // For API routes, just check if token exists
+    // Let the actual API route handlers do the JWT verification
+    const response = NextResponse.next()
+    
+    if (token) {
+      const userData = getUserDataFromRequest(request)
+      if (userData?.id) {
+        response.headers.set('x-user-id', userData.id)
+        response.headers.set('x-user-email', userData.email || '')
+        response.headers.set('x-user-role', userData.adminLevel || '')
       }
     }
-
-    return NextResponse.next();
+    
+    return response
   }
 
-  // Default behavior for other routes
-  return NextResponse.next();
+  // Handle page routes
+  if (!token && !isPublicRoute) {
+    console.log(`❌ No token for protected route ${pathname}, redirecting to login`)
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('callbackUrl', encodeURI(request.url))
+    return NextResponse.redirect(loginUrl)
+  }
+
+  if (token && isAuthRoute) {
+    console.log(`✅ Token exists and user trying to access auth route ${pathname}, redirecting to dashboard`)
+    // Redirect authenticated users away from auth pages
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  if (token && !isPublicRoute && !isAuthRoute) {
+    console.log(`🔐 Token exists for protected route: ${pathname}`)
+    
+    // Get user data from cookie (already stored during login)
+    const userData = getUserDataFromRequest(request)
+    console.log(`   User data from cookie: ${userData ? 'EXISTS' : 'NONE'}`)
+    
+    if (!userData || !userData.id) {
+      console.log(`❌ No valid user data in cookie, clearing and redirecting to login`)
+      // No valid user data - clear cookies and redirect
+      const loginUrl = new URL('/login', request.url)
+      const response = NextResponse.redirect(loginUrl)
+      response.cookies.delete(TOKEN_NAME)
+      response.cookies.delete(USER_DATA_NAME)
+      response.cookies.delete(REFRESH_TOKEN_NAME)
+      return response
+    }
+
+    console.log(`✅ Valid user data found: ${userData.email} (${userData.adminLevel || userData.role})`)
+
+    // Check permissions for protected routes
+    if (!checkPermissions(pathname, userData)) {
+      console.log(`❌ Permission denied for ${pathname}`)
+      return NextResponse.redirect(new URL('/unauthorized', request.url))
+    }
+
+    console.log(`✅ Permission granted for ${pathname}, proceeding...`)
+    // Add user info to headers for server components
+    const response = NextResponse.next()
+    response.headers.set('x-user-id', userData.id)
+    response.headers.set('x-user-email', userData.email || '')
+    response.headers.set('x-user-role', userData.adminLevel || userData.role || '')
+
+    return response
+  }
+
+  return NextResponse.next()
+}
+
+function checkPermissions(pathname: string, user: any): boolean {
+  // Super admin has access to everything
+  if (user.adminLevel === 'super_admin' || user.role === 'super_admin') {
+    return true
+  }
+
+  // Admin level users have broad access
+  if (user.adminLevel === 'admin' || user.role === 'admin') {
+    return true
+  }
+
+  // For now, allow all authenticated users to access dashboard routes
+  // You can implement more granular permissions here
+  const allowedRoutes = ['/', '/dashboard', '/profile', '/settings']
+  
+  if (allowedRoutes.some(route => pathname === route || pathname.startsWith(route))) {
+    return true
+  }
+
+  // Route-based permission checks for specific admin areas
+  const adminRoutes = ['/admin', '/users', '/billing', '/security', '/system-settings']
+  if (adminRoutes.some(route => pathname.startsWith(route))) {
+    return user.adminLevel === 'admin' || user.adminLevel === 'super_admin' || 
+           user.role === 'admin' || user.role === 'super_admin'
+  }
+
+  return true
 }
 
 export const config = {
@@ -146,7 +178,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - .well-known (system files)
+     * - files with common extensions (images, etc.)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
   ],
-};
+}

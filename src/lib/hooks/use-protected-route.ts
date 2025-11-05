@@ -3,8 +3,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/providers';
-import { CookieManager } from '@/lib/utils/cookie-manager';
+import { useAuth } from '@/lib/hooks/use-auth';
+import { clientCookies } from '@/lib/utils/cookies';
 
 interface UseProtectedRouteOptions {
   requiredRoles?: string[];
@@ -19,43 +19,43 @@ export function useProtectedRoute(options: UseProtectedRouteOptions = {}) {
     redirectTo = '/login',
   } = options;
 
-  const { user, loading } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
 
     // Check authentication
-    // if (!CookieManager.isAuthenticated()) {
-    //   router.push(`${redirectTo}?redirect=${encodeURIComponent(window.location.pathname)}`);
-    //   return;
-    // }
+    if (!isAuthenticated) {
+      router.push(`${redirectTo}?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
 
-    // Check role authorization
+    // Check role authorization (using adminLevel for AdminUser)
     if (requiredRoles.length > 0) {
-      const hasRequiredRole = user?.role && requiredRoles.includes(user.role);
+      const hasRequiredRole = user?.adminLevel && requiredRoles.includes(user.adminLevel);
       if (!hasRequiredRole) {
         setIsAuthorized(false);
         return;
       }
     }
 
-    // Check subscription authorization
-    if (requiredSubscriptions.length > 0) {
-      const hasRequiredSubscription = user?.subscription && requiredSubscriptions.includes(user.subscription);
-      if (!hasRequiredSubscription) {
-        setIsAuthorized(false);
-        return;
-      }
-    }
+    // Skip subscription authorization for AdminUser (not applicable)
+    // if (requiredSubscriptions.length > 0) {
+    //   const hasRequiredSubscription = user?.subscription && requiredSubscriptions.includes(user.subscription);
+    //   if (!hasRequiredSubscription) {
+    //     setIsAuthorized(false);
+    //     return;
+    //   }
+    // }
 
     setIsAuthorized(true);
-  }, [user, loading, requiredRoles, requiredSubscriptions, redirectTo, router]);
+  }, [user, isLoading, isAuthenticated, requiredRoles, requiredSubscriptions, redirectTo, router]);
 
   return {
     isAuthorized,
-    isLoading: loading || isAuthorized === null,
+    isLoading: isLoading || isAuthorized === null,
     user,
   };
 }

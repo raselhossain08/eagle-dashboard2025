@@ -53,7 +53,7 @@ import {
   RecordPaymentRequest,
   InvoiceAnalytics
 } from '@/lib/services/payments/invoice.service';
-import { useAuth } from '@/components/providers';
+import { useAuth } from '@/lib/hooks/use-auth';
 
 export default function InvoicesPage() {
   const { user } = useAuth();

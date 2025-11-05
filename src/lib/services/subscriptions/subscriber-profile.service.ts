@@ -1,4 +1,4 @@
-import { TokenUtils } from '../../utils/token.utils';
+import { clientCookies } from '../../utils/cookies';
 
 // Types
 export interface Address {
@@ -269,7 +269,7 @@ const BASE_PATH = '/subscriber-profiles';
 
 class SubscriberProfileService {
   private getAuthHeaders(): HeadersInit {
-    const token = TokenUtils.getToken();
+    const token = clientCookies.getToken();
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };

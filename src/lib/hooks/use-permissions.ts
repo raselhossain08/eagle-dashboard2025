@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getCookie } from 'cookies-next';
 import { jwtDecode } from 'jwt-decode';
+import { clientCookies } from '../utils/cookies';
 
 export interface Permission {
   hasPermission: (permission: string) => boolean;
@@ -22,7 +22,8 @@ const ROLE_HIERARCHY = {
   growth_marketing: 4,
   finance_admin: 5,
   admin: 6,
-  superadmin: 7
+  superadmin: 7,
+  super_admin: 7
 } as const;
 
 // Role-based permissions - matching backend
@@ -36,8 +37,20 @@ const ROLE_PERMISSIONS = {
     "discounts:manage", "campaigns:manage", "announcements:manage",
     "subscribers:lookup", "plans:change_non_financial", "receipts:resend", 
     "cancellations:initiate", "users:impersonate",
-    // Add role management permissions
-    "roles:view", "roles:create", "roles:edit", "roles:delete"
+    "roles:view", "roles:create", "roles:edit", "roles:delete",
+    "system_admin:read", "system_admin:write", "system_admin:delete", "system_admin:manage"
+  ],
+  super_admin: [
+    "system:full_access", "security:manage", "users:delete", "system:destroy",
+    "users:read", "users:write", "users:manage", "reports:read", "reports:write",
+    "dashboard:access", "analytics:read", "analytics:write", "system:read",
+    "billing:manage", "invoices:manage", "refunds:process", "payouts:manage", 
+    "taxes:manage", "financial_reports:view", "financial_reports:export",
+    "discounts:manage", "campaigns:manage", "announcements:manage",
+    "subscribers:lookup", "plans:change_non_financial", "receipts:resend", 
+    "cancellations:initiate", "users:impersonate",
+    "roles:view", "roles:create", "roles:edit", "roles:delete",
+    "system_admin:read", "system_admin:write", "system_admin:delete", "system_admin:manage"
   ],
   finance_admin: [
     "billing:manage", "invoices:manage", "refunds:process", "payouts:manage", 
@@ -63,7 +76,7 @@ const ROLE_PERMISSIONS = {
   admin: [
     "users:read", "users:write", "users:manage", "reports:read", "reports:write",
     "dashboard:access", "analytics:read", "analytics:write", "system:read",
-    "roles:view", "roles:edit"
+    "roles:view", "roles:edit", "system_admin:read", "system_admin:write"
   ],
   user: [
     "dashboard:access", "system:read"
@@ -78,7 +91,8 @@ export function usePermissions(): Permission {
   useEffect(() => {
     const loadUserPermissions = () => {
       try {
-        const token = getCookie('token');
+        // Use professional Eagle token system from cookies
+        const token = clientCookies.getToken();
         
         if (!token) {
           setUserRole('user');
@@ -87,19 +101,53 @@ export function usePermissions(): Permission {
           return;
         }
 
-        // Ensure token is a string
-        const tokenString = typeof token === 'string' ? token : String(token);
-        const decoded: any = jwtDecode(tokenString);
+        // Decode professional Eagle token
+        const decoded: any = jwtDecode(token);
         
-        // Get user role and custom permissions from token or make API call
-        const role = decoded.role || 'user';
-        const customPermissions = decoded.permissions || [];
+        // Enhanced role and permission extraction for Eagle system
+        let role = 'user';
+        
+        // Priority mapping: adminLevel -> userRole (same as middleware)
+        if (decoded.adminLevel) {
+          const adminLevelMapping: Record<string, string> = {
+            'super_admin': 'superadmin',
+            'finance_admin': 'admin', 
+            'growth_marketing': 'admin',
+            'support': 'admin',
+            'read_only': 'user'
+          };
+          
+          role = adminLevelMapping[decoded.adminLevel] || decoded.role || 'user';
+        } else {
+          // Fallback to role field if no adminLevel
+          role = decoded.role || 'user';
+        }
+        let customPermissions = decoded.permissions || [];
+        const department = decoded.department || '';
+        
+        // Fix for super_admin users - ensure they have all permissions
+        if (decoded.adminLevel === 'super_admin' && customPermissions.length === 0) {
+          customPermissions = [
+            "system:full_access", "security:manage", "users:delete", "system:destroy",
+            "users:read", "users:write", "users:manage", "reports:read", "reports:write",
+            "dashboard:access", "analytics:read", "analytics:write", "system:read",
+            "billing:manage", "invoices:manage", "refunds:process", "payouts:manage", 
+            "taxes:manage", "financial_reports:view", "financial_reports:export",
+            "discounts:manage", "campaigns:manage", "announcements:manage",
+            "subscribers:lookup", "plans:change_non_financial", "receipts:resend", 
+            "cancellations:initiate", "users:impersonate",
+            "roles:view", "roles:create", "roles:edit", "roles:delete",
+            "user_management:read", "user_management:write", "user_management:delete",
+            "role_management:read", "role_management:write", "role_management:delete",
+            "permission_management:read", "permission_management:write", "audit_logs:read",
+            "system_admin:read", "system_admin:write", "system_admin:delete", "system_admin:manage"
+          ];
+        }
         
         setUserRole(role);
         setUserPermissions(customPermissions);
         setIsLoading(false);
       } catch (error) {
-        console.error('Error loading user permissions:', error);
         setUserRole('user');
         setUserPermissions([]);
         setIsLoading(false);
@@ -120,7 +168,7 @@ export function usePermissions(): Permission {
 
   const hasPermission = (permission: string): boolean => {
     // Super admin has all permissions
-    if (userRole === 'superadmin') return true;
+    if (userRole === 'superadmin' || userRole === 'super_admin') return true;
     
     const effectivePermissions = getEffectivePermissions();
     return effectivePermissions.includes(permission);

@@ -1,4 +1,4 @@
-import { TokenUtils } from '@/lib/utils/token.utils';
+import { clientCookies } from '@/lib/utils/cookies';
 
 export interface InvoiceLineItem {
   id?: string;
@@ -163,7 +163,7 @@ class InvoiceService {
   private readonly API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
   private getHeaders(): HeadersInit {
-    const token = TokenUtils.getToken();
+    const token = clientCookies.getToken();
     return {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),

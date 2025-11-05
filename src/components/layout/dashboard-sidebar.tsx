@@ -28,7 +28,19 @@ import {
   PenTool,
   Clock,
   Layout,
-  Webhook
+  Webhook,
+  Lock,
+  FileSearch,
+  Zap,
+  Mail,
+  Calculator,
+  TrendingUp,
+  Globe,
+  UserCog,
+  MessageSquare,
+  StickyNote,
+  BookOpen,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -111,17 +123,77 @@ const paymentItems = [
   },
 ];
 
+const adminItems = [
+  {
+    title: "Admin Users",
+    href: "/admin/admin-user",
+    icon: Shield,
+    badge: null,
+  },
+  {
+    title: "Role Management",
+    href: "/admin/roles",
+    icon: Users,
+    badge: null,
+  },
+  {
+    title: "Permissions",
+    href: "/admin/permissions",
+    icon: Lock,
+    badge: null,
+  },
+  {
+    title: "Admin Settings",
+    href: "/admin/settings",
+    icon: Settings,
+    badge: null,
+  },
+  {
+    title: "Audit Logs",
+    href: "/admin/audit-logs",
+    icon: FileSearch,
+    badge: null,
+  },
+];
+
+const supportToolsItems = [
+  {
+    title: "User Impersonation",
+    href: "/admin/support/impersonate",
+    icon: UserCog,
+    badge: null,
+  },
+  {
+    title: "Resend Communications",
+    href: "/admin/support/resend",
+    icon: RefreshCw,
+    badge: null,
+  },
+  {
+    title: "Account Notes & Flags",
+    href: "/admin/support/notes",
+    icon: StickyNote,
+    badge: null,
+  },
+  {
+    title: "Saved Replies",
+    href: "/admin/support/replies",
+    icon: MessageSquare,
+    badge: null,
+  },
+];
+
 const managementItems = [
+  {
+    title: "User Management",
+    href: "/users",
+    icon: Users,
+    badge: null,
+  },
   {
     title: "Customer Profiles",
     href: "/subscriber-profiles",
     icon: UserCheck,
-    badge: null,
-  },
-  {
-    title: "User Roles & Permissions",
-    href: "/roles",
-    icon: Shield,
     badge: null,
   },
   {
@@ -143,6 +215,39 @@ const settingsItems = [
     title: "System Configuration",
     href: "/system-settings",
     icon: Settings,
+    badge: null,
+  },
+];
+
+const integrationsItems = [
+  {
+    title: "Payment Processors",
+    href: "/settings/payment-processors",
+    icon: CreditCard,
+    badge: null,
+  },
+  {
+    title: "Email & SMS Providers",
+    href: "/settings/communication-providers",
+    icon: Mail,
+    badge: null,
+  },
+  {
+    title: "Tax Providers",
+    href: "/settings/tax-providers",
+    icon: Calculator,
+    badge: null,
+  },
+  {
+    title: "Analytics Providers",
+    href: "/settings/analytics-providers",
+    icon: TrendingUp,
+    badge: null,
+  },
+  {
+    title: "Webhooks Configuration",
+    href: "/settings/webhooks-config",
+    icon: Globe,
     badge: null,
   },
 ];
@@ -344,6 +449,44 @@ export function DashboardSidebar({
             </nav>
           </div>
 
+          {/* Admin Management */}
+          <div className="space-y-2">
+            {(!collapsed || isMobile) && (
+              <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Administration
+              </h3>
+            )}
+            <nav className="space-y-1">
+              {adminItems.map((item) => (
+                <NavItem 
+                  key={item.href} 
+                  item={item} 
+                  collapsed={collapsed} 
+                  isMobile={isMobile}
+                />
+              ))}
+            </nav>
+          </div>
+
+          {/* Support Tools */}
+          <div className="space-y-2">
+            {(!collapsed || isMobile) && (
+              <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Support Tools
+              </h3>
+            )}
+            <nav className="space-y-1">
+              {supportToolsItems.map((item) => (
+                <NavItem 
+                  key={item.href} 
+                  item={item} 
+                  collapsed={collapsed} 
+                  isMobile={isMobile}
+                />
+              ))}
+            </nav>
+          </div>
+
           {/* User & System Management */}
           <div className="space-y-2">
             {(!collapsed || isMobile) && (
@@ -353,6 +496,25 @@ export function DashboardSidebar({
             )}
             <nav className="space-y-1">
               {managementItems.map((item) => (
+                <NavItem 
+                  key={item.href} 
+                  item={item} 
+                  collapsed={collapsed} 
+                  isMobile={isMobile}
+                />
+              ))}
+            </nav>
+          </div>
+
+          {/* Settings & Integrations */}
+          <div className="space-y-2">
+            {(!collapsed || isMobile) && (
+              <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Settings & Integrations
+              </h3>
+            )}
+            <nav className="space-y-1">
+              {integrationsItems.map((item) => (
                 <NavItem 
                   key={item.href} 
                   item={item} 

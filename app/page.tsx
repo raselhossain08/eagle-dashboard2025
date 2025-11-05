@@ -3,7 +3,7 @@
 import { DashboardLayout } from "@/components/layout";
 import { Breadcrumb } from "@/components/layout";
 import { WithAuth } from "@/components/auth";
-import { useAuth } from "@/components/providers";
+import { useAuth } from "@/lib/hooks/use-auth";
 import { BarChart3, TrendingUp, Users, DollarSign, Activity, ArrowUpRight, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -18,7 +18,7 @@ function Home() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
-              Good morning, {user?.name || 'User'}! 👋
+              Good morning, {user?.fullName || user?.firstName || 'User'}! 👋
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
               Here's what's happening with your business today.

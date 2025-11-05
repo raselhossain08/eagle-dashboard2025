@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import RoleService, { Role } from '@/services/admin';
+import { roleService } from '@/lib/services/admin';
+import { Role } from '@/lib/types';
 import { toast } from 'sonner';
 
 export interface UseRolesResult {
@@ -26,11 +27,11 @@ export function useRoles(): UseRolesResult {
       setError(null);
       setLoading(true);
 
-      const response = await RoleService.getRoles(forceRefresh);
+      const response = await roleService.getRoles();
       
       if (!mountedRef.current) return;
 
-      setRoles(response.data);
+      setRoles(response.items);
       setLastUpdated(new Date());
 
     } catch (err) {

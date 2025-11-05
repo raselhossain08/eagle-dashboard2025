@@ -1,4 +1,4 @@
-import { TokenUtils } from '../../utils/token.utils';
+// TokenUtils removed - using cookie-based auth
 
 // Base API configuration
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';

@@ -3,8 +3,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/providers';
-import { CookieManager } from '@/lib/utils/cookie-manager';
+import { useAuth } from '@/lib/hooks/use-auth';
+import { getToken, getUserData, clientCookies } from '@/lib/utils/cookies';
 import { Loader2 } from 'lucide-react';
 
 interface WithAuthProps {
@@ -70,7 +70,7 @@ export function withAuth<P extends object>(
   } = options;
 
   const WithAuthComponent: React.FC<P> = (props) => {
-    const { user, loading } = useAuth();
+    const { user, isLoading, isAuthenticated } = useAuth();
     const router = useRouter();
     const [authCheck, setAuthCheck] = useState<AuthCheckResult>({
       isAuthenticated: false,
@@ -81,19 +81,26 @@ export function withAuth<P extends object>(
 
     useEffect(() => {
       checkAuthentication();
-    }, [user, loading]);
+    }, [user, isLoading, isAuthenticated]);
+
+    // Initialize auth check on mount
+    useEffect(() => {
+      const { checkAuth } = useAuth.getState();
+      checkAuth();
+    }, []);
 
     const checkAuthentication = () => {
-      if (loading) {
+      if (isLoading) {
         setAuthCheck(prev => ({ ...prev, isLoading: true }));
         return;
       }
 
-      const isAuthenticated = CookieManager.isAuthenticated();
-      console.log('🔒 withAuth: Authentication check:', { 
+      console.log('🦅 EAGLE withAuth: Professional authentication check:', { 
         isAuthenticated, 
-        hasToken: !!CookieManager.getToken(),
-        pathname: window.location.pathname 
+        hasToken: !!clientCookies.getAccessToken(),
+        authStatus: clientCookies.getAuthenticationStatus(),
+        pathname: window.location.pathname,
+        user: user ? { id: user.id, email: user.email, adminLevel: user.adminLevel } : null
       });
       
       if (!isAuthenticated) {
@@ -103,10 +110,9 @@ export function withAuth<P extends object>(
       }
 
       const hasRequiredRole = requiredRoles.length === 0 || 
-        Boolean(user?.role && requiredRoles.includes(user.role));
+        Boolean(user?.adminLevel && requiredRoles.includes(user.adminLevel));
 
-      const hasRequiredSubscription = requiredSubscriptions.length === 0 || 
-        Boolean(user?.subscription && requiredSubscriptions.includes(user.subscription));
+      const hasRequiredSubscription = requiredSubscriptions.length === 0; // No subscription support for AdminUser
 
       setAuthCheck({
         isAuthenticated,

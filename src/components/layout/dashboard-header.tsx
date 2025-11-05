@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { useAuth } from "@/components/providers";
+import { useAuth } from "@/lib/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { 
   Menu, 
@@ -140,8 +140,8 @@ export function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
                     <User className="h-4 w-4 text-white" />
                   </div>
                   <div className="hidden sm:block text-left">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.name || 'User'}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.role || 'User'}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.fullName || 'User'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.adminLevel || 'User'}</p>
                   </div>
                   <ChevronDown className="h-4 w-4 text-gray-500 hidden sm:block" />
                 </Button>
@@ -149,7 +149,7 @@ export function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">{user?.name || 'User'}</p>
+                    <p className="text-sm font-medium">{user?.fullName || 'User'}</p>
                     <p className="text-xs text-gray-500">{user?.email || 'user@example.com'}</p>
                   </div>
                 </DropdownMenuLabel>

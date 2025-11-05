@@ -15,8 +15,13 @@ export { PaymentMethodService } from './payments';
 export { PlanService, DiscountService } from './plans';
 export { WebhookService } from './integrations';
 export { ApiService, ApiClient } from './shared';
+export { UserService } from './users';
 
-// New service layer exports - using correct paths and naming
+// New API service layer exports
+export { default as ContractAPIService } from './contracts/contract-api.service';
+export { default as AnalyticsAPIService } from './analytics/analytics-api.service';
+
+// Legacy service exports (keeping for backward compatibility)
 export { getAnalytics as analyticsService } from './analytics';
 export { default as contractService } from './contracts';
 
@@ -37,6 +42,35 @@ export type {
   ContractStats,
   ContractSignature
 } from './contracts/contract.service';
+
+// Export new API service types
+export type {
+  ContractContact,
+  ContractContactExtended,
+  ContractSigningData,
+  ContractPaymentUpdate,
+  ContractExportParams,
+  ContractFilterParams,
+  ContractTemplateCreate,
+  ContractTemplateUpdate,
+  ContractTemplateFilter,
+  EnhancedContractInitiate,
+  EvidenceData,
+  SignatureSubmission as APISignatureSubmission
+} from './contracts/contract-api.service';
+
+export type {
+  PageViewData,
+  EventData,
+  SessionUpdateData,
+  AnalyticsMetric,
+  TrafficSource,
+  TopPage,
+  DeviceBreakdown,
+  ConversionFunnel,
+  AnalyticsEvent,
+  AnalyticsFilter
+} from './analytics/analytics-api.service';
 
 // Admin services exported separately to avoid conflicts
 import { 

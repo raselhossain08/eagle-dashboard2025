@@ -1,151 +1,97 @@
-import ApiService from '../shared/api.service';
+// services/role.service.ts
 
-export interface Role {
-  _id: string;
-  name: string;
-  displayName: string;
-  description?: string;
-  permissions: string[];
-  hierarchy: number;
-  color: string;
-  icon: string;
-  isActive: boolean;
-  userCount?: number;
-  email?: string;
-  password?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { ListParams, PaginatedResponse, Role, UserRole } from "@/lib/types"
+import { apiClient } from "../shared/api-client"
 
-export interface CreateRoleRequest {
-  name: string;
-  displayName: string;
-  description?: string;
-  permissions?: string[];
-  hierarchy: number;
-  color?: string;
-  icon?: string;
-  isActive?: boolean;
-  email?: string;
-  password?: string;
-}
-
-export interface UpdateRoleDataRequest {
-  displayName?: string;
-  description?: string;
-  permissions?: string[];
-  color?: string;
-  icon?: string;
-  isActive?: boolean;
-  email?: string;
-  password?: string;
-}
-
-class RoleService {
-  // NO CACHE - Direct API calls only
-
-  /**
-   * Get all available roles - NO CACHE
-   */
-  static async getRoles(forceRefresh = false): Promise<{ data: Role[] }> {
+export class RoleService {
+  async getRoles(params?: ListParams): Promise<PaginatedResponse<Role>> {
     try {
-      const response = await ApiService.get<{ data: Role[] }>('/roles');
+      console.log('🔍 RoleService: Attempting to fetch roles...')
 
-      return response;
+      const response = await apiClient.get<any>('/rbac/roles', { params })
+      console.log('✅ RoleService: Successfully fetched roles', response.data)
+      
+      // Handle the actual API response structure
+      if (response.data?.success && response.data?.data) {
+        const apiData = response.data.data;
+        
+        // Transform to expected PaginatedResponse structure
+        return {
+          items: apiData.roles || [],
+          pagination: {
+            page: apiData.pagination?.current || 1,
+            limit: params?.limit || 10,
+            total: apiData.pagination?.total || 0,
+            pages: apiData.pagination?.pages || 1,
+            hasNext: (apiData.pagination?.current || 1) < (apiData.pagination?.pages || 1),
+            hasPrev: (apiData.pagination?.current || 1) > 1
+          }
+        };
+      }
+      
+      // Fallback for direct response (if API changes structure)
+      return response.data as PaginatedResponse<Role>;
     } catch (error: any) {
-      // NO CACHE - just throw error
-      throw new Error(`Failed to fetch roles: ${error.message}`);
+      console.error('❌ RoleService: Error fetching roles:', error)
+      
+      if (error.response?.status === 403) {
+        console.error('🚫 Access denied. Debugging authentication...')
+        throw new Error(`Access denied: ${error.response.data?.message || 'Insufficient permissions for role management'}`)
+      }
+      
+      throw error
     }
   }
 
-  /**
-   * Create a new role with validation
-   */
-  static async createRole(data: CreateRoleRequest): Promise<{ data: Role }> {
-    try {
-      console.log('📝 Creating new role:', data.name);
-      
-      // Validate required fields
-      if (!data.name?.trim()) {
-        throw new Error('Role name is required');
-      }
-      if (!data.displayName?.trim()) {
-        throw new Error('Display name is required');
-      }
-      if (data.hierarchy < 1 || data.hierarchy > 7) {
-        throw new Error('Role level must be between 1 and 7');
-      }
-
-      const response = await ApiService.post<{ data: Role }>('/roles', data);
-      // NO CACHE - nothing to clear
-      
-      console.log('✅ Role created successfully:', data.name);
-      return response;
-    } catch (error: any) {
-      console.error('❌ Failed to create role:', error);
-      throw new Error(`Failed to create role: ${error.message}`);
+  async getRoleById(id: string): Promise<Role> {
+    const response = await apiClient.get<any>(`/rbac/roles/${id}`)
+    
+    // Handle API response structure
+    if (response.data?.success && response.data?.data) {
+      return response.data.data;
     }
+    
+    return response.data as Role;
   }
 
-  /**
-   * Update a role with validation
-   */
-  static async updateRole(roleId: string, data: UpdateRoleDataRequest): Promise<{ data: Role }> {
-    try {
-      console.log('📝 Updating role:', roleId);
-      
-      if (!roleId) {
-        throw new Error('Role ID is required');
-      }
-
-      const response = await ApiService.put<{ data: Role }>(`/roles/${roleId}`, data);
-      // NO CACHE - nothing to clear
-      
-      console.log('✅ Role updated successfully:', roleId);
-      return response;
-    } catch (error: any) {
-      console.error('❌ Failed to update role:', error);
-      throw new Error(`Failed to update role: ${error.message}`);
+  async createRole(roleData: Partial<Role>): Promise<Role> {
+    const response = await apiClient.post<any>('/rbac/roles', roleData)
+    
+    // Handle API response structure
+    if (response.data?.success && response.data?.data) {
+      return response.data.data;
     }
+    
+    return response.data as Role;
   }
 
-  /**
-   * Delete a role with validation
-   */
-  static async deleteRole(roleId: string): Promise<{ success: boolean; message: string }> {
-    try {
-      console.log('🗑️ Deleting role:', roleId);
-      
-      if (!roleId) {
-        throw new Error('Role ID is required');
-      }
-
-      const response = await ApiService.delete<{ success: boolean; message: string }>(`/roles/${roleId}`);
-      // NO CACHE - nothing to clear
-      
-      console.log('✅ Role deleted successfully:', roleId);
-      return response;
-    } catch (error: any) {
-      console.error('❌ Failed to delete role:', error);
-      throw new Error(`Failed to delete role: ${error.message}`);
+  async updateRole(id: string, roleData: Partial<Role>): Promise<Role> {
+    const response = await apiClient.put<any>(`/rbac/roles/${id}`, roleData)
+    
+    // Handle API response structure
+    if (response.data?.success && response.data?.data) {
+      return response.data.data;
     }
+    
+    return response.data as Role;
   }
 
-  /**
-   * Get role by ID
-   */
-  static async getRoleById(roleId: string): Promise<{ data: Role }> {
-    try {
-      if (!roleId) {
-        throw new Error('Role ID is required');
-      }
+  async deleteRole(id: string): Promise<void> {
+    await apiClient.delete(`/rbac/roles/${id}`)
+  }
 
-      return await ApiService.get<{ data: Role }>(`/roles/${roleId}`);
-    } catch (error: any) {
-      console.error('❌ Failed to fetch role:', error);
-      throw new Error(`Failed to fetch role: ${error.message}`);
-    }
+  async assignRole(userId: string, roleId: string, expiresAt?: string): Promise<UserRole> {
+    const response = await apiClient.post<UserRole>('/rbac/roles/assign', {
+      userId,
+      roleId,
+      expiresAt
+    })
+    return response.data
+  }
+
+  async removeUserRole(userRoleId: string): Promise<void> {
+    await apiClient.delete(`/rbac/roles/user-role/${userRoleId}`)
   }
 }
 
-export default RoleService;
+export const roleService = new RoleService()

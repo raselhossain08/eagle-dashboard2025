@@ -52,7 +52,7 @@ import {
   UpdateKycStatusData,
   CreateIdentityDocumentData
 } from '@/lib/services/subscriptions/subscriber-profile.service';
-import { TokenUtils } from '@/lib/utils/token.utils';
+import { getUserData, getAuthCookies, clientCookies } from '@/lib/utils/cookies';
 
 export default function SubscriberProfileManagement() {
   const [profiles, setProfiles] = useState<any>(null);
@@ -63,13 +63,18 @@ export default function SubscriberProfileManagement() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Check user role permissions
-  const userRole = TokenUtils.getUserRole();
-  const hasAdminAccess = TokenUtils.hasAdminRole();
-  const userInfo = TokenUtils.getUserInfo();
+  const userData = getUserData();
+  const userRole = userData?.role;
+  const hasAdminAccess = userData?.role && ['admin', 'superadmin', 'support_admin'].includes(userData.role);
+  const userInfo = userData;
   
   // Check admin access on component mount
   useEffect(() => {
-    const accessCheck = TokenUtils.checkAdminAccess();
+    const currentUserData = getUserData();
+    const accessCheck = {
+      hasAccess: currentUserData?.role && ['admin', 'superadmin', 'support_admin'].includes(currentUserData.role),
+      userRole: currentUserData?.role
+    };
     console.log('🔐 Admin Access Check:', accessCheck);
     
     if (!accessCheck.hasAccess) {
@@ -82,7 +87,11 @@ export default function SubscriberProfileManagement() {
 
   // Show access denied if user doesn't have admin role
   if (!loading && !hasAdminAccess) {
-    const accessCheck = TokenUtils.checkAdminAccess();
+    const currentUserData = getUserData();
+    const accessCheck = {
+      hasAccess: currentUserData?.role && ['admin', 'superadmin', 'support_admin'].includes(currentUserData.role),
+      userRole: currentUserData?.role
+    };
     
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -124,7 +133,11 @@ export default function SubscriberProfileManagement() {
             <Button 
               onClick={() => {
                 console.log('🔍 Debugging current session...');
-                TokenUtils.debugTokenInfo();
+                const currentAuth = getAuthCookies();
+                const tokenHealth = clientCookies.getTokenHealth();
+                console.log('Auth Data:', currentAuth);
+                console.log('Token Health:', tokenHealth);
+                console.log('Authentication Status:', clientCookies.getAuthenticationStatus());
               }}
               variant="outline" 
               className="w-full"

@@ -2,21 +2,57 @@ import ApiService from '../shared/api.service';
 
 export interface Transaction {
   id: string;
+  _id: string; // MongoDB ID
+  transactionId: string; // Human-readable transaction ID
   userId: string;
   subscriptionId?: string;
   planId?: string;
   type: 'payment' | 'refund' | 'chargeback' | 'adjustment' | 'credit';
   status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'processing';
   amount: number;
+  netAmount: number; // Amount after fees
+  totalFees: number; // Total fees charged
   currency: string;
   description: string;
-  paymentMethod: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer' | 'wallet';
+  paymentMethod: PaymentMethodDetails;
   paymentReference?: string;
+  pspReference?: string; // Payment service provider reference
   invoiceId?: string;
   metadata?: Record<string, any>;
   processedAt?: string;
   createdAt: string;
   updatedAt: string;
+  customerSnapshot?: CustomerSnapshot;
+  payout?: PayoutInfo;
+  psp?: PSPInfo;
+}
+
+export interface PaymentMethodDetails {
+  type: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer' | 'wallet';
+  last4?: string;
+  brand?: string;
+  expiryMonth?: number;
+  expiryYear?: number;
+}
+
+export interface CustomerSnapshot {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+}
+
+export interface PayoutInfo {
+  status: 'pending' | 'processing' | 'paid' | 'failed';
+  expectedDate?: string;
+  paidDate?: string;
+  amount: number;
+}
+
+export interface PSPInfo {
+  provider: string;
+  transactionId?: string;
+  fees?: number;
 }
 
 export interface TransactionFilters {
@@ -47,6 +83,13 @@ export interface TransactionAnalytics {
     totalAmount: number;
     transactionCount: number;
   }>;
+  topCustomers?: Array<{
+    id: string;
+    name: string;
+    email: string;
+    totalAmount: number;
+    transactionCount: number;
+  }>;
 }
 
 export interface CreateTransactionData {
@@ -57,7 +100,7 @@ export interface CreateTransactionData {
   amount: number;
   currency: string;
   description: string;
-  paymentMethod: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer' | 'wallet';
+  paymentMethod: PaymentMethodDetails | string; // Allow both for backwards compatibility
   paymentReference?: string;
   invoiceId?: string;
   metadata?: Record<string, any>;
@@ -177,10 +220,23 @@ export class TransactionService {
       });
     }
     
+    // Get token from cookies
+    const getTokenFromCookies = () => {
+      if (typeof window === 'undefined') return null;
+      try {
+        const cookies = document.cookie.split(';');
+        const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('admin_token='));
+        return tokenCookie ? tokenCookie.split('=')[1].trim() : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const token = getTokenFromCookies();
     const response = await fetch(`/api${TransactionService.ENDPOINT}/export?${queryParams}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${token}`,
       },
     });
     
@@ -226,7 +282,8 @@ export class TransactionService {
   }
 
   formatPaymentMethod(method: Transaction['paymentMethod']): string {
-    return method.split('_').map(word => 
+    const methodType = typeof method === 'string' ? method : method.type;
+    return methodType.split('_').map((word: string) => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
   }

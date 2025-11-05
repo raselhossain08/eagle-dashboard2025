@@ -762,10 +762,23 @@ class ContractService {
    */
   async downloadContractPDF(contractId: string): Promise<Blob> {
     try {
+      // Get token from cookies
+      const getTokenFromCookies = () => {
+        if (typeof window === 'undefined') return null;
+        try {
+          const cookies = document.cookie.split(';');
+          const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('admin_token='));
+          return tokenCookie ? tokenCookie.split('=')[1].trim() : null;
+        } catch {
+          return null;
+        }
+      };
+
+      const token = getTokenFromCookies();
       const response = await fetch(`/api${this.contractsEndpoint}/${contractId}/pdf`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
       

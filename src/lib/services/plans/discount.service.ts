@@ -1,4 +1,4 @@
-import { TokenUtils } from '../../utils/token.utils';
+// TokenUtils removed - using cookie-based auth
 
 // Base API configuration
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -541,6 +541,13 @@ class DiscountService {
     };
   }
 }
+
+// Type aliases for component imports
+export type DiscountCode = Discount;
+export type DiscountType = Discount['type'];
+export type DiscountStatus = Discount['status'];
+export type DiscountApplication = 'automatic' | 'manual';
+export type DiscountRedemption = UsageTracking;
 
 export const discountService = new DiscountService();
 export default discountService;

@@ -45,7 +45,7 @@ import {
   CreateFeatureFlagData,
   CreateLegalTextData,
   CreatePolicyUrlData
-} from '@/src/lib/services/admin/system-settings.service';
+} from '@/lib/services/admin/system-settings.service';
 
 export default function SystemSettingsManagement() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);

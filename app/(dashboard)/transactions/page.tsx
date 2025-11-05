@@ -36,7 +36,7 @@ import {
   TransactionAnalytics,
   CreateTransactionData,
   RefundData
-} from '@/src/lib/services/shared/transaction.service';
+} from '@/lib/services/shared/transaction.service';
 
 export default function TransactionManagement() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -575,7 +575,11 @@ export default function TransactionManagement() {
                           </TableCell>
                           <TableCell>
                             <div>
-                              <div className="capitalize">{transaction.paymentMethod}</div>
+                              <div className="capitalize">
+                                {typeof transaction.paymentMethod === 'string' 
+                                  ? transaction.paymentMethod 
+                                  : transaction.paymentMethod.type}
+                              </div>
                               <div className="text-xs text-muted-foreground">
                                 {transaction.paymentReference || 'N/A'}
                               </div>
@@ -696,16 +700,16 @@ export default function TransactionManagement() {
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Transaction Status</h3>
                   {analytics?.byStatus && Object.entries(analytics.byStatus).map(([status, count]) => (
-                    <div key={status._id} className="flex items-center justify-between py-2 border-b">
+                    <div key={status} className="flex items-center justify-between py-2 border-b">
                       <div className="flex items-center gap-2">
-                        {getStatusBadge(status._id)}
+                        {getStatusBadge(status)}
                       </div>
                       <div className="text-right">
                         <div className="font-semibold">
-                          {formatAmount(status.totalAmount, 'USD')}
+                          {count} transactions
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {status.count} transactions
+                          Status: {status}
                         </div>
                       </div>
                     </div>
@@ -719,7 +723,7 @@ export default function TransactionManagement() {
                   <h3 className="text-lg font-semibold mb-4">Top Customers</h3>
                   <div className="space-y-2">
                     {analytics.topCustomers.slice(0, 10).map((customer) => (
-                      <div key={customer.userId} className="flex items-center justify-between py-2 border-b">
+                      <div key={customer.id} className="flex items-center justify-between py-2 border-b">
                         <div>
                           <div className="font-medium">{customer.name}</div>
                           <div className="text-sm text-muted-foreground">{customer.email}</div>
@@ -767,7 +771,7 @@ export default function TransactionManagement() {
                           </div>
                         </div>
                         <div>
-                          {getPayoutBadge(transaction.payout.status)}
+                          {transaction.payout ? getPayoutBadge(transaction.payout.status) : 'N/A'}
                         </div>
                       </div>
                       <div className="text-right">
@@ -775,7 +779,7 @@ export default function TransactionManagement() {
                           {formatAmount(transaction.netAmount, transaction.currency)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {transaction.payout.expectedDate 
+                          {transaction.payout?.expectedDate 
                             ? `Expected: ${new Date(transaction.payout.expectedDate).toLocaleDateString()}`
                             : 'No expected date'
                           }
@@ -847,7 +851,7 @@ export default function TransactionManagement() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Provider:</span>
-                      <span className="capitalize">{selectedTransaction.psp.provider}</span>
+                      <span className="capitalize">{selectedTransaction.psp?.provider || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Method:</span>
@@ -886,9 +890,9 @@ export default function TransactionManagement() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Status:</span>
-                      {getPayoutBadge(selectedTransaction.payout.status)}
+                      {selectedTransaction.payout ? getPayoutBadge(selectedTransaction.payout.status) : 'N/A'}
                     </div>
-                    {selectedTransaction.payout.expectedDate && (
+                    {selectedTransaction.payout?.expectedDate && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Expected:</span>
                         <span>{new Date(selectedTransaction.payout.expectedDate).toLocaleDateString()}</span>
