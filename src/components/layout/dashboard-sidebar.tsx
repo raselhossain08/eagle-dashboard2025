@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { 
-  Home, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  FileText, 
-  CreditCard, 
-  Shield, 
+import {
+  Home,
+  BarChart3,
+  Users,
+  Settings,
+  FileText,
+  CreditCard,
+  Shield,
   HelpCircle,
   ChevronLeft,
   ChevronRight,
@@ -53,9 +53,21 @@ const mainNavItems = [
     badge: null,
   },
   {
-    title: "Analytics & Reports", 
+    title: "Analytics",
     href: "/analytics",
     icon: BarChart3,
+    badge: null,
+  },
+  {
+    title: "Visitor Analytics",
+    href: "/visitor-analytics",
+    icon: TrendingUp,
+    badge: null,
+  },
+  {
+    title: "Activity Audit",
+    href: "/audit",
+    icon: Activity,
     badge: null,
   },
 ];
@@ -89,6 +101,12 @@ const contractItems = [
     badge: null,
   },
   {
+    title: "Pending Contracts",
+    href: "/contracts/pending",
+    icon: Clock,
+    badge: null,
+  },
+  {
     title: "Document Templates",
     href: "/contract-templates",
     icon: Layout,
@@ -104,21 +122,78 @@ const contractItems = [
 
 const paymentItems = [
   {
-    title: "Invoice Management",
+    title: "Payment Management",
+    href: "/payment",
+    icon: Wrench,
+    badge: null,
+  },
+  {
+    title: "Finance Dashboard",
+    href: "/payment/finance",
+    icon: TrendingUp,
+    badge: null,
+  },
+  {
+    title: "Invoices",
     href: "/invoices",
     icon: Receipt,
     badge: null,
   },
   {
-    title: "Transaction History",
+    title: "Create Invoice",
+    href: "/invoices/create",
+    icon: FilePlus2,
+    badge: null,
+  },
+  {
+    title: "Transactions",
     href: "/transactions",
     icon: ArrowRightLeft,
     badge: null,
   },
   {
-    title: "Payment Methods",
-    href: "/payment-methods",
+    title: "PayPal Transactions",
+    href: "/transactions/paypal",
     icon: CreditCard,
+    badge: null,
+  },
+];
+
+const billingItems = [
+  {
+    title: "Billing Overview",
+    href: "/billing",
+    icon: Receipt,
+    badge: null,
+  },
+  {
+    title: "Tax Rates",
+    href: "/billing/tax-rates",
+    icon: Calculator,
+    badge: null,
+  },
+  {
+    title: "Tax Management",
+    href: "/tax",
+    icon: FileText,
+    badge: null,
+  },
+  {
+    title: "Receipts",
+    href: "/billing/receipts",
+    icon: FileCheck,
+    badge: null,
+  },
+  {
+    title: "Currency Settings",
+    href: "/billing/currency-settings",
+    icon: Globe,
+    badge: null,
+  },
+  {
+    title: "Export Data",
+    href: "/billing/export",
+    icon: Database,
     badge: null,
   },
 ];
@@ -197,12 +272,6 @@ const managementItems = [
     badge: null,
   },
   {
-    title: "Activity Audit",
-    href: "/audit",
-    icon: Activity,
-    badge: null,
-  },
-  {
     title: "API Webhooks",
     href: "/webhooks",
     icon: Webhook,
@@ -212,14 +281,32 @@ const managementItems = [
 
 const settingsItems = [
   {
-    title: "System Configuration",
+    title: "System Settings",
     href: "/system-settings",
     icon: Settings,
+    badge: null,
+  },
+  {
+    title: "Setup Wizard",
+    href: "/settings/setup",
+    icon: Zap,
+    badge: null,
+  },
+  {
+    title: "Verify Settings",
+    href: "/settings/verify",
+    icon: Shield,
     badge: null,
   },
 ];
 
 const integrationsItems = [
+  {
+    title: "All Integrations",
+    href: "/settings/integrations",
+    icon: Zap,
+    badge: null,
+  },
   {
     title: "Payment Processors",
     href: "/settings/payment-processors",
@@ -245,9 +332,18 @@ const integrationsItems = [
     badge: null,
   },
   {
-    title: "Webhooks Configuration",
+    title: "Webhooks Config",
     href: "/settings/webhooks-config",
     icon: Globe,
+    badge: null,
+  },
+];
+
+const migrationItems = [
+  {
+    title: "WordPress Migration",
+    href: "/wp-migration",
+    icon: RefreshCw,
     badge: null,
   },
 ];
@@ -258,10 +354,10 @@ interface DashboardSidebarProps {
   onMobileMenuClose?: () => void;
 }
 
-export function DashboardSidebar({ 
-  collapsed = false, 
-  mobileMenuOpen = false, 
-  onMobileMenuClose 
+export function DashboardSidebar({
+  collapsed = false,
+  mobileMenuOpen = false,
+  onMobileMenuClose
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
@@ -282,10 +378,10 @@ export function DashboardSidebar({
     }
   };
 
-  const NavItem = ({ item, collapsed: collapsed, isMobile: mobile }: { 
-    item: typeof mainNavItems[0], 
-    collapsed: boolean, 
-    isMobile: boolean 
+  const NavItem = ({ item, collapsed: collapsed, isMobile: mobile }: {
+    item: typeof mainNavItems[0],
+    collapsed: boolean,
+    isMobile: boolean
   }) => {
     const isActive = pathname === item.href;
     const Icon = item.icon;
@@ -311,7 +407,7 @@ export function DashboardSidebar({
             <span className="font-medium text-sm">{item.title}</span>
           )}
         </div>
-        
+
         {(!collapsed || mobile) && item.badge && (
           <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">
             {item.badge}
@@ -341,7 +437,7 @@ export function DashboardSidebar({
           onClick={onMobileMenuClose}
         />
       )}
-      
+
       {/* Sidebar */}
       <div className={cn(
         "fixed left-0 top-0 h-screen overflow-y-auto  bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-r border-gray-200/50 dark:border-gray-800/50 transition-all duration-300 z-40 shadow-lg ",
@@ -382,10 +478,10 @@ export function DashboardSidebar({
             )}
             <nav className="space-y-1">
               {mainNavItems.map((item) => (
-                <NavItem 
-                  key={item.href} 
-                  item={item} 
-                  collapsed={collapsed} 
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
                   isMobile={isMobile}
                 />
               ))}
@@ -401,10 +497,10 @@ export function DashboardSidebar({
             )}
             <nav className="space-y-1">
               {subscriptionItems.map((item) => (
-                <NavItem 
-                  key={item.href} 
-                  item={item} 
-                  collapsed={collapsed} 
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
                   isMobile={isMobile}
                 />
               ))}
@@ -420,10 +516,10 @@ export function DashboardSidebar({
             )}
             <nav className="space-y-1">
               {contractItems.map((item) => (
-                <NavItem 
-                  key={item.href} 
-                  item={item} 
-                  collapsed={collapsed} 
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
                   isMobile={isMobile}
                 />
               ))}
@@ -434,15 +530,34 @@ export function DashboardSidebar({
           <div className="space-y-2">
             {(!collapsed || isMobile) && (
               <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Financial Management
+                Payment & Finance
               </h3>
             )}
             <nav className="space-y-1">
               {paymentItems.map((item) => (
-                <NavItem 
-                  key={item.href} 
-                  item={item} 
-                  collapsed={collapsed} 
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
+                  isMobile={isMobile}
+                />
+              ))}
+            </nav>
+          </div>
+
+          {/* Billing & Tax Management */}
+          <div className="space-y-2">
+            {(!collapsed || isMobile) && (
+              <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Billing & Tax
+              </h3>
+            )}
+            <nav className="space-y-1">
+              {billingItems.map((item) => (
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
                   isMobile={isMobile}
                 />
               ))}
@@ -458,10 +573,10 @@ export function DashboardSidebar({
             )}
             <nav className="space-y-1">
               {adminItems.map((item) => (
-                <NavItem 
-                  key={item.href} 
-                  item={item} 
-                  collapsed={collapsed} 
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
                   isMobile={isMobile}
                 />
               ))}
@@ -477,10 +592,10 @@ export function DashboardSidebar({
             )}
             <nav className="space-y-1">
               {supportToolsItems.map((item) => (
-                <NavItem 
-                  key={item.href} 
-                  item={item} 
-                  collapsed={collapsed} 
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
                   isMobile={isMobile}
                 />
               ))}
@@ -496,10 +611,10 @@ export function DashboardSidebar({
             )}
             <nav className="space-y-1">
               {managementItems.map((item) => (
-                <NavItem 
-                  key={item.href} 
-                  item={item} 
-                  collapsed={collapsed} 
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
                   isMobile={isMobile}
                 />
               ))}
@@ -510,15 +625,15 @@ export function DashboardSidebar({
           <div className="space-y-2">
             {(!collapsed || isMobile) && (
               <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Settings & Integrations
+                Integrations
               </h3>
             )}
             <nav className="space-y-1">
               {integrationsItems.map((item) => (
-                <NavItem 
-                  key={item.href} 
-                  item={item} 
-                  collapsed={collapsed} 
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
                   isMobile={isMobile}
                 />
               ))}
@@ -529,15 +644,34 @@ export function DashboardSidebar({
           <div className="space-y-2">
             {(!collapsed || isMobile) && (
               <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                System
+                System Settings
               </h3>
             )}
             <nav className="space-y-1">
               {settingsItems.map((item) => (
-                <NavItem 
-                  key={item.href} 
-                  item={item} 
-                  collapsed={collapsed} 
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
+                  isMobile={isMobile}
+                />
+              ))}
+            </nav>
+          </div>
+
+          {/* Migration Tools */}
+          <div className="space-y-2">
+            {(!collapsed || isMobile) && (
+              <h3 className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Migration
+              </h3>
+            )}
+            <nav className="space-y-1">
+              {migrationItems.map((item) => (
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  collapsed={collapsed}
                   isMobile={isMobile}
                 />
               ))}

@@ -19,6 +19,17 @@ class ApiClient {
         const token = this.getToken()
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
+          console.log('🔑 API Request:', {
+            url: config.url,
+            method: config.method?.toUpperCase(),
+            hasToken: true,
+            tokenPreview: token.substring(0, 20) + '...'
+          })
+        } else {
+          console.log('⚠️ API Request without token:', {
+            url: config.url,
+            method: config.method?.toUpperCase()
+          })
         }
         return config
       },
@@ -28,7 +39,16 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
+        console.error('❌ API Error:', {
+          url: error.config?.url,
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          data: error.response?.data
+        })
+
         if (error.response?.status === 401) {
+          const errorMessage = error.response?.data?.message || 'Unauthorized'
+          console.error('🔒 401 Unauthorized:', errorMessage)
           this.handleUnauthorized()
         }
         return Promise.reject(error)
@@ -38,11 +58,26 @@ class ApiClient {
 
   private getToken(): string | null {
     if (typeof window !== 'undefined') {
-      // Use cookies instead of localStorage
+      // Check multiple cookie names for compatibility
       try {
         const cookies = document.cookie.split(';')
-        const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('admin_token='))
-        return tokenCookie ? tokenCookie.split('=')[1].trim() : null
+
+        // Try primary token name first
+        let tokenCookie = cookies.find(cookie => cookie.trim().startsWith('admin_token='))
+        if (tokenCookie) {
+          return tokenCookie.split('=')[1].trim()
+        }
+
+        // Try fallback names
+        const fallbackNames = ['adminToken=', 'AdminToken=', 'token=']
+        for (const name of fallbackNames) {
+          tokenCookie = cookies.find(cookie => cookie.trim().startsWith(name))
+          if (tokenCookie) {
+            return tokenCookie.split('=')[1].trim()
+          }
+        }
+
+        return null
       } catch (error) {
         console.error('Error getting token from cookies:', error)
         return null

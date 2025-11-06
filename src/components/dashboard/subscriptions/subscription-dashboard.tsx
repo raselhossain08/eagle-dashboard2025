@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { 
-  Bell, 
-  AlertTriangle, 
-  Clock, 
+import {
+  Bell,
+  AlertTriangle,
+  Clock,
   TrendingUp,
   Users,
   Calendar,
@@ -53,7 +53,7 @@ export function SubscriptionDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-    
+
     // Refresh every 5 minutes
     const interval = setInterval(fetchDashboardData, 5 * 60 * 1000);
     return () => clearInterval(interval);
@@ -67,7 +67,7 @@ export function SubscriptionDashboard() {
         dueForRenewal: true,
         recentActivity: true
       });
-      
+
       // Fetch data with individual error handling
       const [expiringSoonRes, renewalRes, activityRes] = await Promise.allSettled([
         SubscriptionService.getExpiringSoon(7),
@@ -76,12 +76,18 @@ export function SubscriptionDashboard() {
       ]);
 
       setStats({
-        expiringSoon: expiringSoonRes.status === 'fulfilled' && expiringSoonRes.value.success ? expiringSoonRes.value.data : [],
-        dueForRenewal: renewalRes.status === 'fulfilled' && renewalRes.value.success ? renewalRes.value.data : [],
-        recentActivity: activityRes.status === 'fulfilled' && activityRes.value.success ? activityRes.value.data.map((item: any) => ({
-          ...item,
-          timestamp: new Date(item.timestamp)
-        })) : []
+        expiringSoon: expiringSoonRes.status === 'fulfilled' && expiringSoonRes.value.success && Array.isArray(expiringSoonRes.value.data)
+          ? expiringSoonRes.value.data
+          : [],
+        dueForRenewal: renewalRes.status === 'fulfilled' && renewalRes.value.success && Array.isArray(renewalRes.value.data)
+          ? renewalRes.value.data
+          : [],
+        recentActivity: activityRes.status === 'fulfilled' && activityRes.value.success && Array.isArray(activityRes.value.data)
+          ? activityRes.value.data.map((item: any) => ({
+            ...item,
+            timestamp: new Date(item.timestamp)
+          }))
+          : []
       });
 
       // Log any errors but don't fail the entire operation
@@ -113,7 +119,7 @@ export function SubscriptionDashboard() {
   const handleProcessRenewal = async (subscriptionId: string) => {
     try {
       const response = await SubscriptionService.processRenewal(subscriptionId);
-      
+
       if (response.success) {
         toast.success('Renewal processed successfully');
         fetchDashboardData();
@@ -128,6 +134,10 @@ export function SubscriptionDashboard() {
 
   // Helper functions
   const getActivityIcon = (action: string) => {
+    if (!action || typeof action !== 'string') {
+      return '📄'; // Default icon for undefined/invalid action
+    }
+
     const iconMap: { [key: string]: string } = {
       'CREATE': '➕',
       'UPDATE': '✏️',
@@ -147,7 +157,7 @@ export function SubscriptionDashboard() {
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
+
     if (diffInSeconds < 60) {
       return 'Just now';
     } else if (diffInSeconds < 3600) {
@@ -166,7 +176,7 @@ export function SubscriptionDashboard() {
   const createSampleData = async () => {
     try {
       const result = await SubscriptionService.createSampleData();
-      
+
       if (result.success) {
         toast.success(result.message || 'Sample data created successfully');
         fetchDashboardData(); // Refresh data
@@ -183,7 +193,7 @@ export function SubscriptionDashboard() {
   const createSampleAuditLogs = async () => {
     try {
       const result = await SubscriptionService.createSampleAuditLogs();
-      
+
       if (result.success) {
         toast.success(result.message || 'Sample audit logs created successfully');
         fetchDashboardData(); // Refresh data
@@ -216,12 +226,12 @@ export function SubscriptionDashboard() {
               Expiring Soon
             </CardTitle>
             <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-              {stats.expiringSoon.length}
+              {Array.isArray(stats.expiringSoon) ? stats.expiringSoon.length : 0}
             </Badge>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
-              {stats.expiringSoon.length}
+              {Array.isArray(stats.expiringSoon) ? stats.expiringSoon.length : 0}
             </div>
             <p className="text-xs text-muted-foreground">
               Subscriptions expiring within 7 days
@@ -238,7 +248,7 @@ export function SubscriptionDashboard() {
             </CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-red-600 border-red-600">
-                {stats.dueForRenewal.length}
+                {Array.isArray(stats.dueForRenewal) ? stats.dueForRenewal.length : 0}
               </Badge>
               <Button
                 variant="ghost"
@@ -253,7 +263,7 @@ export function SubscriptionDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {stats.dueForRenewal.length}
+              {Array.isArray(stats.dueForRenewal) ? stats.dueForRenewal.length : 0}
             </div>
             <p className="text-xs text-muted-foreground">
               Subscriptions requiring renewal action
@@ -289,55 +299,56 @@ export function SubscriptionDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {stats.expiringSoon.length === 0 ? (
+              {!Array.isArray(stats.expiringSoon) || stats.expiringSoon.length === 0 ? (
                 <div className="text-center py-8">
                   <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">No subscriptions expiring soon</p>
-                  {stats.dueForRenewal.length === 0 && stats.recentActivity.length === 0 && (
-                    <Button
-                      onClick={createSampleData}
-                      variant="outline"
-                      size="sm"
-                      className="mt-3"
-                    >
-                      Create Sample Data for Testing
-                    </Button>
-                  )}
+                  {(!Array.isArray(stats.dueForRenewal) || stats.dueForRenewal.length === 0) &&
+                    (!Array.isArray(stats.recentActivity) || stats.recentActivity.length === 0) && (
+                      <Button
+                        onClick={createSampleData}
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                      >
+                        Create Sample Data for Testing
+                      </Button>
+                    )}
                 </div>
               ) : (
                 <div className="space-y-3">
                   {stats.expiringSoon.map((subscription) => (
                     <div
-                      key={subscription._id}
+                      key={subscription?._id || Math.random().toString()}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           <div>
-                            <p className="font-medium">{subscription.userId.name}</p>
-                            <p className="text-sm text-gray-500">{subscription.userId.email}</p>
+                            <p className="font-medium">{subscription?.name || 'Unknown User'}</p>
+                            <p className="text-sm text-gray-500">{subscription?.email || 'No email'}</p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline">{subscription.planName}</Badge>
-                            <Badge 
-                              className={`${
-                                (subscription.daysRemaining ?? 0) <= 3 
-                                  ? 'bg-red-500' 
-                                  : 'bg-yellow-500'
-                              } text-white`}
+                            <Badge variant="outline">{subscription?.currentPlan || 'Unknown Plan'}</Badge>
+                            <Badge
+                              className={`${(subscription?.daysRemaining ?? 0) <= 3
+                                ? 'bg-red-500'
+                                : 'bg-yellow-500'
+                                } text-white`}
                             >
-                              {subscription.daysRemaining} days left
+                              {subscription?.daysRemaining ?? 0} days left
                             </Badge>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">
-                          ${subscription.price}
+                          ${subscription?.mrr || 0}
                         </span>
                         <Button
                           size="sm"
-                          onClick={() => handleProcessRenewal(subscription._id)}
+                          onClick={() => handleProcessRenewal(subscription?._id)}
+                          disabled={!subscription?._id}
                         >
                           <RefreshCw className="h-4 w-4 mr-1" />
                           Renew
@@ -361,7 +372,7 @@ export function SubscriptionDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {stats.dueForRenewal.length === 0 ? (
+              {!Array.isArray(stats.dueForRenewal) || stats.dueForRenewal.length === 0 ? (
                 <div className="text-center py-8">
                   <RefreshCw className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">No renewals due</p>
@@ -370,31 +381,32 @@ export function SubscriptionDashboard() {
                 <div className="space-y-3">
                   {stats.dueForRenewal.map((subscription) => (
                     <div
-                      key={subscription._id}
+                      key={subscription?._id || Math.random().toString()}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           <div>
-                            <p className="font-medium">{subscription.userId.name}</p>
-                            <p className="text-sm text-gray-500">{subscription.userId.email}</p>
+                            <p className="font-medium">{subscription?.name || 'Unknown User'}</p>
+                            <p className="text-sm text-gray-500">{subscription?.email || 'No email'}</p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline">{subscription.planName}</Badge>
+                            <Badge variant="outline">{subscription?.currentPlan || 'Unknown Plan'}</Badge>
                             <Badge className="bg-blue-500 text-white">
-                              Due: {subscription.nextBillingDate ? new Date(subscription.nextBillingDate).toLocaleDateString() : 'Now'}
+                              Due: {subscription?.nextBillingDate ? new Date(subscription.nextBillingDate).toLocaleDateString() : 'Now'}
                             </Badge>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">
-                          ${subscription.price}
+                          ${subscription?.mrr || 0}
                         </span>
                         <Button
                           size="sm"
-                          onClick={() => handleProcessRenewal(subscription._id)}
+                          onClick={() => handleProcessRenewal(subscription?._id)}
                           className="bg-blue-600 hover:bg-blue-700"
+                          disabled={!subscription?._id}
                         >
                           <Zap className="h-4 w-4 mr-1" />
                           Process
@@ -418,7 +430,7 @@ export function SubscriptionDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {stats.recentActivity.length === 0 ? (
+              {!Array.isArray(stats.recentActivity) || stats.recentActivity.length === 0 ? (
                 <div className="text-center py-8">
                   <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">No recent activity</p>
@@ -426,7 +438,8 @@ export function SubscriptionDashboard() {
                     Subscription activities will appear here
                   </p>
                   <div className="flex gap-2 justify-center mt-4">
-                    {stats.expiringSoon.length > 0 || stats.dueForRenewal.length > 0 ? (
+                    {(Array.isArray(stats.expiringSoon) && stats.expiringSoon.length > 0) ||
+                      (Array.isArray(stats.dueForRenewal) && stats.dueForRenewal.length > 0) ? (
                       <Button
                         onClick={createSampleAuditLogs}
                         variant="outline"
@@ -449,27 +462,27 @@ export function SubscriptionDashboard() {
                 <div className="space-y-3">
                   {stats.recentActivity.map((activity) => (
                     <div
-                      key={activity.id}
+                      key={activity?.id || Math.random().toString()}
                       className="flex items-start justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                            {getActivityIcon(activity.action)}
+                            {getActivityIcon(activity?.action)}
                           </div>
                           <div>
-                            <p className="font-medium text-sm">{activity.description}</p>
+                            <p className="font-medium text-sm">{activity?.description || 'No description'}</p>
                             <p className="text-xs text-gray-500">
-                              by {activity.actor} • {activity.resource}
+                              by {activity?.actor || 'Unknown'} • {activity?.resource || 'Unknown resource'}
                             </p>
                             <p className="text-xs text-gray-400 mt-1">
-                              {activity.changes}
+                              {activity?.changes || 'No changes recorded'}
                             </p>
                           </div>
                         </div>
                       </div>
                       <div className="text-xs text-gray-400 ml-4">
-                        {formatTimeAgo(activity.timestamp)}
+                        {activity?.timestamp ? formatTimeAgo(activity.timestamp) : 'Unknown time'}
                       </div>
                     </div>
                   ))}

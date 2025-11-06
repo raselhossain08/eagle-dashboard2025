@@ -2,35 +2,61 @@ import ApiService from '../shared/api.service';
 
 export interface Subscription {
   _id: string;
-  userId: {
+  subscriberId: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  company?: string | null;
+  country: string;
+  subscription: string;
+  subscriptionStatus: string; // Maps to 'status' in old interface
+  currentPlan: string; // Maps to 'planName' in old interface
+  currentPlanId: string;
+  planType: string;
+  planCategory: string;
+  billingCycle: string;
+  mrr: number;
+  totalRevenue: number;
+  totalSpent: number;
+  lifetimeValue: number;
+  churnRisk: {
+    score: number;
+    level: string;
+  };
+  openTickets: number;
+  lastLoginAt: string | null;
+  createdAt: string;
+  isActive: boolean;
+  subscriptionStartDate: string; // Maps to 'startDate' in old interface
+  subscriptionEndDate: string | null; // Maps to 'endDate' in old interface
+  nextBillingDate: string | null;
+  lastBillingDate: string | null;
+  trialEndsAt: string | null;
+
+  // Computed properties for backwards compatibility
+  userId?: {
     _id: string;
     name: string;
     email: string;
     phone?: string;
   };
-  planId: {
+  planId?: {
     _id: string;
     name: string;
     displayName: string;
     category: string;
     pricing: any;
   };
-  planName: string;
-  planType: string;
-  billingCycle: string;
-  price: number;
-  originalPrice: number;
-  currency: string;
-  status: string;
-  startDate: string;
+  planName?: string;
+  price?: number;
+  status?: string;
+  startDate?: string;
   endDate?: string;
-  nextBillingDate?: string;
-  paymentMethod: string;
-  daysRemaining?: number;
-  isActive: boolean;
-  displayName: string;
-  createdAt: string;
-  updatedAt: string;
+  daysRemaining?: number | null;
+  displayName?: string;
+  updatedAt?: string;
   adminNotes?: string;
   planChangeHistory?: Array<{
     fromPlan: string;
@@ -52,18 +78,43 @@ export interface Subscription {
 }
 
 export interface SubscriptionAnalytics {
-  summary: {
-    totalActive: number;
-    totalCancelled: number;
-    newSubscriptions: number;
+  overview: {
+    totalSubscribers: number;
+    activeSubscribers: number;
+    canceledSubscribers: number;
+    churnedSubscribers: number;
+    churnRate: number;
+  };
+  revenue: {
+    mrr: number;
+    arr: number;
+    arpu: number;
+    activeSubscribers: number;
+  };
+  growth: {
+    newSubscribers: number;
+    churnedSubscribers: number;
+    netGrowth: number;
+    growthRate: number;
+  };
+  planDistribution: Array<{
+    planId: string;
+    subscribers: number;
     revenue: number;
-    churnCount: number;
-  };
-  breakdown: {
-    byStatus: Array<{ _id: string; count: number }>;
-    byPlanType: Array<{ _id: string; count: number }>;
-    byBillingCycle: Array<{ _id: string; count: number }>;
-  };
+  }>;
+  recentActivity: Array<{
+    id: string;
+    email: string;
+    userName: string;
+    status: string;
+    planId: string;
+    billingCycle: string;
+    mrr: number;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  timeRange: string;
+  generatedAt: string;
 }
 
 export interface GetSubscriptionsParams {
@@ -137,7 +188,7 @@ class SubscriptionService extends ApiService {
   static async getSubscriptions(params?: GetSubscriptionsParams): Promise<SubscriptionsResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.limit) queryParams.append('limit', params.limit.toString());
       if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
@@ -149,7 +200,7 @@ class SubscriptionService extends ApiService {
       if (params?.startDate) queryParams.append('startDate', params.startDate);
       if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-      const url = queryParams.toString() 
+      const url = queryParams.toString()
         ? `${this.BASE_PATH}?${queryParams.toString()}`
         : this.BASE_PATH;
 
@@ -271,18 +322,29 @@ class SubscriptionService extends ApiService {
       return {
         success: false,
         data: {
-          summary: {
-            totalActive: 0,
-            totalCancelled: 0,
-            newSubscriptions: 0,
-            revenue: 0,
-            churnCount: 0
+          overview: {
+            totalSubscribers: 0,
+            activeSubscribers: 0,
+            canceledSubscribers: 0,
+            churnedSubscribers: 0,
+            churnRate: 0
           },
-          breakdown: {
-            byStatus: [],
-            byPlanType: [],
-            byBillingCycle: []
-          }
+          revenue: {
+            mrr: 0,
+            arr: 0,
+            arpu: 0,
+            activeSubscribers: 0
+          },
+          growth: {
+            newSubscribers: 0,
+            churnedSubscribers: 0,
+            netGrowth: 0,
+            growthRate: 0
+          },
+          planDistribution: [],
+          recentActivity: [],
+          timeRange: '30d',
+          generatedAt: new Date().toISOString()
         },
         error: error instanceof Error ? error.message : 'Failed to get analytics'
       };
@@ -360,9 +422,9 @@ class SubscriptionService extends ApiService {
    */
   static async pauseSubscription(id: string, pauseDuration: number, reason: string): Promise<SubscriptionResponse> {
     try {
-      return await this.post<SubscriptionResponse>(`${this.BASE_PATH}/${id}/pause`, { 
-        pauseDuration, 
-        reason 
+      return await this.post<SubscriptionResponse>(`${this.BASE_PATH}/${id}/pause`, {
+        pauseDuration,
+        reason
       });
     } catch (error) {
       console.error('Failed to pause subscription:', error);

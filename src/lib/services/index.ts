@@ -17,6 +17,11 @@ export { WebhookService } from './integrations';
 export { ApiService, ApiClient } from './shared';
 export { UserService } from './users';
 
+// Billing and Payment Services
+export { billingService } from './billing.service';
+export { paypalService } from './paypal.service';
+export { taxService } from './tax.service';
+
 // New API service layer exports
 export { default as ContractAPIService } from './contracts/contract-api.service';
 export { default as AnalyticsAPIService } from './analytics/analytics-api.service';
@@ -73,11 +78,11 @@ export type {
 } from './analytics/analytics-api.service';
 
 // Admin services exported separately to avoid conflicts
-import { 
-  AuditLogService, 
-  SystemSettingsService, 
-  InvoiceService, 
-  SubscriberProfileService 
+import {
+  AuditLogService,
+  SystemSettingsService,
+  InvoiceService,
+  SubscriberProfileService
 } from './admin';
 
 export {

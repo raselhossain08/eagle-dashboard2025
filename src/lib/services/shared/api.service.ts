@@ -3,7 +3,7 @@
 class ApiService {
   private static getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    
+
     // Use cookies instead of localStorage for better security
     try {
       const cookies = document.cookie.split(';');
@@ -22,8 +22,13 @@ class ApiService {
 
     if (includeAuth) {
       const token = this.getToken();
+      console.log('🔍 Token from cookie:', token ? `${token.substring(0, 20)}...` : 'No token found');
       if (token) {
+        // Backend expects 'Bearer ' prefix based on standard JWT authentication
         headers['Authorization'] = `Bearer ${token}`;
+        console.log('📤 Sending Authorization header:', headers['Authorization'].substring(0, 30) + '...');
+      } else {
+        console.warn('⚠️ No token available - request will be unauthenticated');
       }
     }
 
@@ -36,6 +41,7 @@ class ApiService {
     if (includeAuth) {
       const token = this.getToken();
       if (token) {
+        // Backend expects 'Bearer ' prefix based on standard JWT authentication
         headers['Authorization'] = `Bearer ${token}`;
       }
     }
@@ -46,20 +52,39 @@ class ApiService {
   private static async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`;
-      
+      let errorData = null;
+
       try {
-        const error = await response.json();
-        errorMessage = error.message || error.error || errorMessage;
+        errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+
+        // Log detailed error information
+        console.error('🔴 API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          message: errorMessage,
+          fullError: errorData
+        });
       } catch {
         errorMessage = response.statusText || errorMessage;
       }
 
       if (response.status === 401) {
-        errorMessage = 'Authentication required. Please log in.';
-        // Optionally clear token and redirect to login
+        console.error('🔒 401 Unauthorized - Clearing auth state');
+        errorMessage = errorData?.message || 'Authentication failed. Please log in again.';
+
+        // Clear authentication
         if (typeof window !== 'undefined') {
           localStorage.removeItem('authToken');
           localStorage.removeItem('token');
+
+          // Clear cookies
+          document.cookie.split(";").forEach((c) => {
+            document.cookie = c
+              .replace(/^ +/, "")
+              .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+          });
         }
       } else if (response.status === 403) {
         errorMessage = 'Access denied. You do not have permission to perform this action.';
@@ -69,7 +94,10 @@ class ApiService {
         errorMessage = 'Server error. Please try again later.';
       }
 
-      throw new Error(errorMessage);
+      const error = new Error(errorMessage);
+      // Attach the full error data for better debugging
+      (error as any).response = { data: errorData, status: response.status };
+      throw error;
     }
     return response.json();
   }

@@ -72,15 +72,15 @@ class EagleApiClient {
    */
   private getAuthHeaders(skipAuth = false): Record<string, string> {
     if (skipAuth) return {};
-    
+
     const headers = EagleTokenManager.getAuthHeaders();
-    
+
     // Log auth status for debugging
     if (process.env.NODE_ENV === 'development') {
       const hasAuth = Object.keys(headers).length > 0;
       console.log(`🔐 API Request - Auth: ${hasAuth ? '✅ Included' : '❌ Missing'}`);
     }
-    
+
     return headers;
   }
 
@@ -116,11 +116,11 @@ class EagleApiClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        // Make the request
+        // Make the request with credentials to include cookies
         const response = await fetch(url, {
           ...init,
           signal: controller.signal,
-          credentials: 'include',
+          credentials: 'include', // This ensures cookies are sent
           headers: {
             ...this.getDefaultHeaders(options),
             ...init.headers,
@@ -134,7 +134,7 @@ class EagleApiClient {
 
       } catch (error) {
         lastError = error as Error;
-        
+
         // Don't retry on auth errors or final attempt
         if (attempt === maxRetries || this.isAuthError(error)) {
           break;
@@ -159,11 +159,11 @@ class EagleApiClient {
     options: RequestOptions
   ): Promise<T> {
     const isJson = response.headers.get('content-type')?.includes('application/json');
-    
+
     try {
       if (!response.ok) {
         let errorData: any = {};
-        
+
         if (isJson) {
           errorData = await response.json();
         } else {
@@ -212,10 +212,10 @@ class EagleApiClient {
    */
   private async handleAuthError(): Promise<void> {
     console.warn('🚨 Authentication error detected');
-    
+
     // Clear invalid token
     EagleTokenManager.clearToken();
-    
+
     // Try to refresh token if available
     if (EagleTokenManager.shouldRefreshToken()) {
       try {
@@ -231,7 +231,7 @@ class EagleApiClient {
     if (typeof window !== 'undefined') {
       const currentPath = window.location.pathname;
       const authPaths = ['/login', '/register', '/forgot-password'];
-      
+
       if (!authPaths.some(path => currentPath.startsWith(path))) {
         console.log('🔄 Redirecting to login...');
         window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
@@ -262,7 +262,7 @@ class EagleApiClient {
    */
   private showErrorToast(error: ApiError): void {
     const message = this.getUserFriendlyErrorMessage(error);
-    
+
     // Try different toast libraries
     if ((window as any).toast) {
       (window as any).toast.error(message);

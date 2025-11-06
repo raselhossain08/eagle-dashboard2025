@@ -1,9 +1,9 @@
-import DiscountManagement from "@/components/dashboard/plans/discount-management";
+import { DiscountDashboard } from '@/components/dashboard/discounts/DiscountDashboard';
 
 export default function DiscountsPage() {
   return (
     <div className="container mx-auto py-6">
-      <DiscountManagement />
+      <DiscountDashboard />
     </div>
   );
 }

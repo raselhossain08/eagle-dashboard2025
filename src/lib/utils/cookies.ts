@@ -3,7 +3,8 @@
 import Cookies from 'js-cookie'
 import type { NextRequest } from 'next/server'
 
-export const TOKEN_NAME = 'admin_token'
+export const TOKEN_NAME = 'admin_token'  // Primary token name for frontend
+export const TOKEN_NAME_BACKEND = 'adminToken'  // Backend cookie name (httpOnly)
 export const USER_DATA_NAME = 'admin_user'
 export const REFRESH_TOKEN_NAME = 'admin_refresh_token'
 
@@ -16,7 +17,7 @@ export interface CookieOptions {
 
 // Client-side cookie options (for js-cookie)
 const clientOptions = {
-  expires: 1/3, // 8 hours (1/3 of a day)
+  expires: 1 / 3, // 8 hours (1/3 of a day)
   path: '/',
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict' as const
@@ -26,10 +27,10 @@ const clientOptions = {
 export function setAuthCookies(token: string, userData: any, refreshToken?: string) {
   // Set access token
   Cookies.set(TOKEN_NAME, token, clientOptions)
-  
+
   // Set user data
   Cookies.set(USER_DATA_NAME, JSON.stringify(userData), clientOptions)
-  
+
   // Set refresh token if provided (longer expiry)
   if (refreshToken) {
     Cookies.set(REFRESH_TOKEN_NAME, refreshToken, {
@@ -82,10 +83,10 @@ export const clientCookies = {
   setAuthCookies: (token: string, userData: any, refreshToken?: string) => {
     // Set access token
     Cookies.set(TOKEN_NAME, token, clientOptions)
-    
+
     // Set user data
     Cookies.set(USER_DATA_NAME, JSON.stringify(userData), clientOptions)
-    
+
     // Set refresh token if provided (longer expiry)
     if (refreshToken) {
       Cookies.set(REFRESH_TOKEN_NAME, refreshToken, {

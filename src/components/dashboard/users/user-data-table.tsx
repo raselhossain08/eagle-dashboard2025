@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from 'react';
-import { 
-  MoreHorizontal, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  Mail, 
-  Shield, 
+import {
+  MoreHorizontal,
+  Eye,
+  Edit,
+  Trash2,
+  Mail,
+  Shield,
   UserX,
   CheckCircle,
   XCircle,
@@ -61,6 +61,12 @@ export function UserDataTable({
   onDeleteUser,
   onViewUser,
 }: UserDataTableProps) {
+
+  // Debug: Log users data
+  console.log('🔍 UserDataTable received users:', users);
+  console.log('📊 Users count:', users?.length || 0);
+  console.log('⏳ Loading state:', loading);
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       onSelectUsers(users.map(user => user._id));
@@ -207,12 +213,13 @@ export function UserDataTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.length === 0 ? (
+          {!users || users.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-8">
                 <div className="flex flex-col items-center space-y-2 text-gray-500 dark:text-gray-400">
                   <UserX className="h-8 w-8" />
                   <p>No users found</p>
+                  <p className="text-xs">Try adjusting your filters or search query</p>
                 </div>
               </TableCell>
             </TableRow>
@@ -229,8 +236,8 @@ export function UserDataTable({
                 <TableCell>
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage 
-                        src={user.avatar} 
+                      <AvatarImage
+                        src={user.avatar}
                         alt={user.name}
                       />
                       <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
@@ -286,7 +293,7 @@ export function UserDataTable({
                         Edit user
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => onDeleteUser(user)}
                         className="text-red-600 dark:text-red-400"
                       >

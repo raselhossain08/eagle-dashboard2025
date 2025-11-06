@@ -35,10 +35,11 @@ export interface AuthState {
 class EagleTokenManager {
   // Cookie configuration
   private static readonly COOKIE_NAMES = {
-    primary: 'adminToken',        // Primary token cookie
-    fallback: 'AdminToken',       // Fallback cookie name
-    legacy: 'token',              // Legacy support
-    refresh: 'refreshToken'       // Refresh token (if needed)
+    primary: 'admin_token',       // Primary token cookie (matches backend)
+    fallback: 'adminToken',       // Fallback for token manager
+    legacy1: 'AdminToken',        // Legacy support
+    legacy2: 'token',             // Legacy support
+    refresh: 'admin_refresh_token'  // Refresh token (if needed)
   };
 
   // Token settings
@@ -53,7 +54,7 @@ class EagleTokenManager {
 
   // Event listeners for token changes
   private static listeners: Set<(state: AuthState) => void> = new Set();
-  
+
   // Cache for performance
   private static cachedState: AuthState | null = null;
   private static cacheExpiry = 0;
@@ -66,13 +67,13 @@ class EagleTokenManager {
 
     // Set up automatic token validation
     this.scheduleTokenValidation();
-    
+
     // Listen for storage events (token changes in other tabs)
     window.addEventListener('storage', this.handleStorageChange.bind(this));
-    
+
     // Clean up expired tokens on page load
     this.cleanupExpiredTokens();
-    
+
     console.log('🔐 Eagle Token Manager initialized successfully');
   }
 
@@ -250,7 +251,7 @@ class EagleTokenManager {
     const user = this.getUserInfo();
     const adminRoles = ['admin', 'superadmin', 'super_admin'];
     const adminLevels = ['super_admin', 'finance_admin', 'growth_marketing', 'support'];
-    
+
     return adminRoles.includes(user?.role || '') || adminLevels.includes(user?.adminLevel || '');
   }
 
@@ -275,10 +276,10 @@ class EagleTokenManager {
    */
   static onAuthChange(callback: (state: AuthState) => void): () => void {
     this.listeners.add(callback);
-    
+
     // Call immediately with current state
     callback(this.getAuthState());
-    
+
     // Return unsubscribe function
     return () => {
       this.listeners.delete(callback);
@@ -408,12 +409,12 @@ class EagleTokenManager {
     // Check every minute
     setInterval(() => {
       const state = this.getAuthState();
-      
+
       if (state.isAuthenticated && state.isExpiring) {
         console.warn('⚠️ Token is expiring soon');
         // Here you could trigger a refresh or show a warning
       }
-      
+
       if (state.token && this.isTokenExpired(state.token)) {
         console.warn('⚠️ Token has expired, clearing...');
         this.clearToken();
@@ -445,18 +446,18 @@ class EagleTokenManager {
    */
   static debug(): void {
     const state = this.getAuthState();
-    
+
     console.group('🔐 Eagle Token Manager Debug');
     console.log('Authentication State:', state);
     console.log('Cookie Names:', this.COOKIE_NAMES);
     console.log('Token Settings:', this.TOKEN_SETTINGS);
     console.log('Listeners Count:', this.listeners.size);
     console.log('Cache Valid:', Date.now() < this.cacheExpiry);
-    
+
     if (state.token) {
       console.log('Token Preview:', state.token.substring(0, 50) + '...');
     }
-    
+
     if (state.user) {
       console.log('User Info:', {
         id: state.user.id,
@@ -466,7 +467,7 @@ class EagleTokenManager {
         expires: state.expiresAt
       });
     }
-    
+
     console.groupEnd();
   }
 }

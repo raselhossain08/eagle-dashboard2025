@@ -11,11 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { 
-  Users, 
-  TrendingUp, 
-  DollarSign, 
+import {
+  Users,
+  TrendingUp,
+  DollarSign,
   Calendar,
   Search,
   Filter,
@@ -52,12 +53,12 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { SubscriptionService } from '@/lib/services';
 import PlanService from '@/lib/services/plans/plan.service';
-import type { 
-  Subscription, 
+import type {
+  Subscription,
   SubscriptionAnalytics,
   GetSubscriptionsParams,
   UpdateSubscriptionRequest,
-  CancelSubscriptionRequest 
+  CancelSubscriptionRequest
 } from '@/lib/services/subscriptions/subscription.service';
 import type { Plan } from '@/lib/services/plans/plan.service';
 import SubscriptionDashboard from '@/components/dashboard/subscriptions/subscription-dashboard';
@@ -66,6 +67,7 @@ export default function SubscriptionManagementPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [analytics, setAnalytics] = useState<SubscriptionAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filterLoading, setFilterLoading] = useState(false); // Separate loading state for filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [planTypeFilter, setPlanTypeFilter] = useState('all');
@@ -81,10 +83,15 @@ export default function SubscriptionManagementPage() {
   const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
 
   // Fetch subscriptions with filters
-  const fetchSubscriptions = async () => {
+  const fetchSubscriptions = async (isFilterChange = false) => {
     try {
-      setLoading(true);
-      
+      // Use filterLoading for filter changes, loading for initial load
+      if (isFilterChange) {
+        setFilterLoading(true);
+      } else {
+        setLoading(true);
+      }
+
       const params: GetSubscriptionsParams = {
         page: currentPage,
         limit: 20,
@@ -92,12 +99,16 @@ export default function SubscriptionManagementPage() {
         sortOrder: 'desc'
       };
 
+      // Only filter by status on server-side
       if (statusFilter !== 'all') params.status = statusFilter;
-      if (planTypeFilter !== 'all') params.planType = planTypeFilter;
+      // planTypeFilter will be handled client-side for better control
+
+      console.log('🔍 Fetching subscriptions with params:', params);
 
       const response = await SubscriptionService.getSubscriptions(params);
-      
+
       if (response.success) {
+        console.log('✅ Subscriptions fetched:', response.data.length, 'items');
         setSubscriptions(response.data);
         setTotalPages(response.pagination.pages);
       } else {
@@ -107,7 +118,11 @@ export default function SubscriptionManagementPage() {
       console.error('Error fetching subscriptions:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch subscriptions');
     } finally {
-      setLoading(false);
+      if (isFilterChange) {
+        setFilterLoading(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
 
@@ -115,7 +130,7 @@ export default function SubscriptionManagementPage() {
   const fetchAnalytics = async () => {
     try {
       const response = await SubscriptionService.getAnalytics();
-      
+
       if (response.success) {
         setAnalytics(response.data);
       } else {
@@ -139,29 +154,70 @@ export default function SubscriptionManagementPage() {
   };
 
   useEffect(() => {
-    fetchSubscriptions();
-    fetchAnalytics();
-    fetchAvailablePlans();
-  }, [currentPage, statusFilter, planTypeFilter]);
+    // Initial load
+    if (currentPage === 1 && statusFilter === 'all') {
+      fetchSubscriptions(false); // Initial load
+      fetchAnalytics();
+      fetchAvailablePlans();
+    } else {
+      // Filter change - don't reload analytics and plans
+      fetchSubscriptions(true); // Filter change
+    }
+  }, [currentPage, statusFilter]); // planTypeFilter removed - it's client-side only
+
+  // Calculate days remaining for each subscription
+  const calculateDaysRemaining = (endDate: string | null): number | null => {
+    if (!endDate) return null;
+    const end = new Date(endDate);
+    const now = new Date();
+    const diffTime = end.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
+
+  // Enhance subscriptions with computed daysRemaining
+  const enhancedSubscriptions = subscriptions.map(sub => ({
+    ...sub,
+    daysRemaining: calculateDaysRemaining(sub.subscriptionEndDate)
+  }));
+
+  // Get unique plan types from current data
+  const uniquePlanTypes = React.useMemo(() => {
+    const types = new Set<string>();
+    enhancedSubscriptions.forEach(sub => {
+      if (sub.planType) {
+        types.add(sub.planType);
+      }
+    });
+    return Array.from(types).sort();
+  }, [enhancedSubscriptions]);
 
   // Filter subscriptions by search term and health status
-  const filteredSubscriptions = subscriptions.filter(sub => {
+  const filteredSubscriptions = enhancedSubscriptions.filter(sub => {
     // Safe string operations with null checks
-    const userName = sub.userId?.name || '';
-    const userEmail = sub.userId?.email || '';
-    const planName = sub.planName || '';
-    
+    const userName = sub.name || '';
+    const userEmail = sub.email || '';
+    const planName = sub.currentPlan || '';
+
     const matchesSearch = userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
       planName.toLowerCase().includes(searchTerm.toLowerCase());
 
     if (!matchesSearch) return false;
 
+    // Plan type filter (client-side) - skip if 'all' is selected
+    if (planTypeFilter && planTypeFilter !== 'all') {
+      const subPlanType = (sub.planType || '').toLowerCase();
+      const filterValue = planTypeFilter.toLowerCase();
+      console.log(`🔍 Filtering - Sub planType: "${subPlanType}", Filter: "${filterValue}", Match: ${subPlanType === filterValue}`);
+      if (subPlanType !== filterValue) return false;
+    }
+
     if (healthFilter === 'all') return true;
-    
+
     const daysRemaining = sub.daysRemaining ?? null;
-    const isActive = sub.status === 'active';
-    
+    const isActive = sub.subscriptionStatus === 'active';
+
     switch (healthFilter) {
       case 'healthy':
         return isActive && (daysRemaining === null || daysRemaining > 30);
@@ -176,11 +232,24 @@ export default function SubscriptionManagementPage() {
     }
   });
 
+  // Log filter results
+  React.useEffect(() => {
+    console.log('📊 Filter Status:', {
+      totalSubscriptions: enhancedSubscriptions.length,
+      filteredSubscriptions: filteredSubscriptions.length,
+      planTypeFilter,
+      statusFilter,
+      healthFilter,
+      searchTerm,
+      uniquePlanTypes
+    });
+  }, [filteredSubscriptions.length, planTypeFilter, statusFilter, healthFilter, searchTerm]);
+
   // Action handlers
   const handleUpdateSubscription = async (subscriptionId: string, updates: UpdateSubscriptionRequest) => {
     try {
       const response = await SubscriptionService.updateSubscription(subscriptionId, updates);
-      
+
       if (response.success) {
         toast.success('Subscription updated successfully');
         fetchSubscriptions();
@@ -198,7 +267,7 @@ export default function SubscriptionManagementPage() {
     try {
       const cancelData: CancelSubscriptionRequest = { reason };
       const response = await SubscriptionService.cancelSubscription(subscriptionId, cancelData);
-      
+
       if (response.success) {
         toast.success('Subscription cancelled successfully');
         fetchSubscriptions();
@@ -215,7 +284,7 @@ export default function SubscriptionManagementPage() {
   const handleReactivateSubscription = async (subscriptionId: string) => {
     try {
       const response = await SubscriptionService.reactivateSubscription(subscriptionId);
-      
+
       if (response.success) {
         toast.success('Subscription reactivated successfully');
         fetchSubscriptions();
@@ -231,7 +300,7 @@ export default function SubscriptionManagementPage() {
   const handleSuspendSubscription = async (subscriptionId: string, reason: string) => {
     try {
       const response = await SubscriptionService.suspendSubscription(subscriptionId, reason);
-      
+
       if (response.success) {
         toast.success('Subscription suspended successfully');
         fetchSubscriptions();
@@ -247,7 +316,7 @@ export default function SubscriptionManagementPage() {
   const handleResumeSubscription = async (subscriptionId: string) => {
     try {
       const response = await SubscriptionService.resumeSubscription(subscriptionId);
-      
+
       if (response.success) {
         toast.success('Subscription resumed successfully');
         fetchSubscriptions();
@@ -267,7 +336,7 @@ export default function SubscriptionManagementPage() {
 
     try {
       const response = await SubscriptionService.deleteSubscription(subscriptionId);
-      
+
       if (response.success) {
         toast.success('Subscription deleted successfully');
         fetchSubscriptions();
@@ -294,7 +363,7 @@ export default function SubscriptionManagementPage() {
         effectiveDate,
         prorationMode: effectiveDate ? 'next_cycle' : 'immediate'
       });
-      
+
       if (response.success) {
         const changeType = effectiveDate ? 'scheduled' : 'immediate';
         toast.success(`Plan change ${changeType === 'immediate' ? 'completed' : 'scheduled'} successfully`);
@@ -316,7 +385,7 @@ export default function SubscriptionManagementPage() {
 
     try {
       const response = await SubscriptionService.cancelScheduledPlanChange(subscriptionId);
-      
+
       if (response.success) {
         toast.success('Scheduled plan change cancelled successfully');
         fetchSubscriptions();
@@ -330,7 +399,7 @@ export default function SubscriptionManagementPage() {
   };
 
   // UI Helper Functions
-  const getStatusBadge = (status: string, isPaused?: boolean) => {
+  const getStatusBadge = (subscriptionStatus: string, isPaused?: boolean) => {
     if (isPaused) {
       return <Badge className="bg-orange-500 text-white">Paused</Badge>;
     }
@@ -345,7 +414,7 @@ export default function SubscriptionManagementPage() {
       paused: { color: 'bg-orange-500', text: 'Paused', icon: PauseCircle }
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    const config = statusConfig[subscriptionStatus as keyof typeof statusConfig] || statusConfig.pending;
     const Icon = config.icon;
 
     return (
@@ -356,24 +425,24 @@ export default function SubscriptionManagementPage() {
     );
   };
 
-  const getHealthBadge = (daysRemaining: number | null, status: string) => {
-    if (status !== 'active') return null;
+  const getHealthBadge = (daysRemaining: number | null, subscriptionStatus: string) => {
+    if (subscriptionStatus !== 'active') return null;
     if (daysRemaining === null) return <Badge className="bg-purple-500 text-white">Lifetime</Badge>;
-    
+
     if (daysRemaining <= 7) {
       return <Badge className="bg-red-500 text-white flex items-center gap-1">
         <AlertTriangle className="w-3 h-3" />
         Critical
       </Badge>;
     }
-    
+
     if (daysRemaining <= 30) {
       return <Badge className="bg-yellow-500 text-white flex items-center gap-1">
         <Clock className="w-3 h-3" />
         Warning
       </Badge>;
     }
-    
+
     return <Badge className="bg-green-500 text-white flex items-center gap-1">
       <CheckCircle className="w-3 h-3" />
       Healthy
@@ -382,7 +451,7 @@ export default function SubscriptionManagementPage() {
 
   const getDaysRemainingProgress = (daysRemaining: number | null, billingCycle: string) => {
     if (daysRemaining === null) return 100;
-    
+
     const totalDays = billingCycle === 'monthly' ? 30 : 365;
     const progress = Math.max(0, Math.min(100, (daysRemaining / totalDays) * 100));
     return progress;
@@ -407,8 +476,8 @@ export default function SubscriptionManagementPage() {
           </p>
         </div>
       </div>
-    {/* Analytics Cards */}
-      {analytics && (
+      {/* Analytics Cards */}
+      {analytics && analytics.overview && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -416,333 +485,443 @@ export default function SubscriptionManagementPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{analytics.summary.totalActive}</div>
+              <div className="text-2xl font-bold text-green-600">{analytics.overview.activeSubscribers || 0}</div>
               <p className="text-xs text-muted-foreground">Currently active</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Scheduled Changes</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Total Subscribers</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {subscriptions.filter(sub => sub.scheduledPlanChange).length}
-              </div>
-              <p className="text-xs text-muted-foreground">Plan changes pending</p>
+              <div className="text-2xl font-bold text-blue-600">{analytics.overview.totalSubscribers || 0}</div>
+              <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">New This Period</CardTitle>
+              <CardTitle className="text-sm font-medium">New Subscribers</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{analytics.summary.newSubscriptions}</div>
-              <p className="text-xs text-muted-foreground">New signups</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">${analytics.summary.revenue.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-green-600">{analytics.growth.newSubscribers || 0}</div>
               <p className="text-xs text-muted-foreground">This period</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Churn Count</CardTitle>
-              <XCircle className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Monthly Revenue (MRR)</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{analytics.summary.churnCount}</div>
-              <p className="text-xs text-muted-foreground">Cancelled</p>
+              <div className="text-2xl font-bold text-green-600">${(analytics.revenue.mrr || 0).toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Recurring revenue</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Cancelled</CardTitle>
-              <Ban className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Churn Rate</CardTitle>
+              <XCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-600">{analytics.summary.totalCancelled}</div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <div className="text-2xl font-bold text-red-600">{(analytics.overview.churnRate || 0).toFixed(1)}%</div>
+              <p className="text-xs text-muted-foreground">{analytics.overview.churnedSubscribers || 0} churned</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{(analytics.growth.growthRate || 0).toFixed(1)}%</div>
+              <p className="text-xs text-muted-foreground">Net: +{analytics.growth.netGrowth || 0}</p>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Subscription Dashboard */}
-      <SubscriptionDashboard />
+      {/* Tabbed Content */}
+      <Tabs defaultValue="subscriptions" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="subscriptions" className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Subscriptions
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            Recent Activity
+          </TabsTrigger>
+        </TabsList>
 
-  
-      {/* Main Management Panel */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Subscription Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Filters and Search */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by user name, email, or plan..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+        {/* Subscriptions Tab */}
+        <TabsContent value="subscriptions" className="space-y-6">
+          {/* Subscription Dashboard */}
+          <SubscriptionDashboard />
+
+          {/* Main Management Panel */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Subscription Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Filters and Search */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by user name, email, or plan..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchSubscriptions(false)}
+                  className="flex items-center gap-2"
+                  disabled={filterLoading}
+                >
+                  <RefreshCw className={`w-4 h-4 ${filterLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+
+                <Select value={statusFilter} onValueChange={setStatusFilter} disabled={filterLoading}>
+                  <SelectTrigger className="w-48">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="trial">Trial</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={planTypeFilter} onValueChange={setPlanTypeFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filter by plan type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Plan Types</SelectItem>
+                    {uniquePlanTypes.length > 0 ? (
+                      uniquePlanTypes.map(type => (
+                        <SelectItem key={type} value={type}>
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <>
+                        <SelectItem value="subscription">Subscriptions</SelectItem>
+                        <SelectItem value="mentorship">Mentorships</SelectItem>
+                        <SelectItem value="script">Scripts</SelectItem>
+                        <SelectItem value="addon">Add-ons</SelectItem>
+                        <SelectItem value="training">Training</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+
+                <Select value={healthFilter} onValueChange={setHealthFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filter by health" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Health Status</SelectItem>
+                    <SelectItem value="healthy">Healthy (30+ days)</SelectItem>
+                    <SelectItem value="warning">Warning (7-30 days)</SelectItem>
+                    <SelectItem value="critical">Critical (≤7 days)</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchSubscriptions}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </Button>
+              {/* Subscriptions Table */}
+              <div className="rounded-md border relative">
+                {/* Loading overlay for filter changes */}
+                {filterLoading && (
+                  <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 z-10 flex items-center justify-center rounded-md">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900 dark:border-white"></div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Loading subscriptions...</p>
+                    </div>
+                  </div>
+                )}
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
-                <SelectItem value="trial">Trial</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={planTypeFilter} onValueChange={setPlanTypeFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by plan type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Plan Types</SelectItem>
-                <SelectItem value="subscription">Subscriptions</SelectItem>
-                <SelectItem value="mentorship">Mentorships</SelectItem>
-                <SelectItem value="script">Scripts</SelectItem>
-                <SelectItem value="addon">Add-ons</SelectItem>
-                <SelectItem value="training">Training</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={healthFilter} onValueChange={setHealthFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by health" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Health Status</SelectItem>
-                <SelectItem value="healthy">Healthy (30+ days)</SelectItem>
-                <SelectItem value="warning">Warning (7-30 days)</SelectItem>
-                <SelectItem value="critical">Critical (≤7 days)</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Subscriptions Table */}
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Health</TableHead>
-                  <TableHead>Billing</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead>Days Left</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead className="w-12">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSubscriptions.map((subscription) => (
-                  <TableRow key={subscription._id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{subscription.userId?.name || 'N/A'}</div>
-                        <div className="text-sm text-muted-foreground">{subscription.userId?.email || 'N/A'}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{subscription.planName}</div>
-                        <div className="text-sm text-muted-foreground capitalize">{subscription.planType}</div>
-                        {subscription.scheduledPlanChange && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <Calendar className="w-3 h-3 text-orange-500" />
-                            <span className="text-xs text-orange-600 dark:text-orange-400">
-                              Changes to {subscription.scheduledPlanChange.newPlanName} on{' '}
-                              {new Date(subscription.scheduledPlanChange.effectiveDate).toLocaleDateString()}
-                            </span>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Health</TableHead>
+                      <TableHead>Billing</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Start Date</TableHead>
+                      <TableHead>Days Left</TableHead>
+                      <TableHead>Progress</TableHead>
+                      <TableHead className="w-12">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSubscriptions.map((subscription) => (
+                      <TableRow key={subscription._id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{subscription.name || 'N/A'}</div>
+                            <div className="text-sm text-muted-foreground">{subscription.email || 'N/A'}</div>
                           </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(subscription.status)}
-                    </TableCell>
-                    <TableCell>
-                      {getHealthBadge(subscription.daysRemaining ?? null, subscription.status)}
-                    </TableCell>
-                    <TableCell className="capitalize">{subscription.billingCycle}</TableCell>
-                    <TableCell>${subscription.price}</TableCell>
-                    <TableCell>{new Date(subscription.startDate).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      {subscription.daysRemaining !== null ? `${subscription.daysRemaining} days` : 'Lifetime'}
-                    </TableCell>
-                    <TableCell>
-                      {subscription.daysRemaining !== null && subscription.daysRemaining !== undefined && (
-                        <div className="w-20">
-                          <Progress 
-                            value={getDaysRemainingProgress(subscription.daysRemaining ?? null, subscription.billingCycle)} 
-                            className="h-2"
-                          />
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{subscription.currentPlan}</div>
+                            <div className="text-sm text-muted-foreground capitalize">{subscription.planType}</div>
+                            {subscription.scheduledPlanChange && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <Calendar className="w-3 h-3 text-orange-500" />
+                                <span className="text-xs text-orange-600 dark:text-orange-400">
+                                  Changes to {subscription.scheduledPlanChange.newPlanName} on{' '}
+                                  {new Date(subscription.scheduledPlanChange.effectiveDate).toLocaleDateString()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(subscription.subscriptionStatus)}
+                        </TableCell>
+                        <TableCell>
+                          {getHealthBadge(subscription.daysRemaining ?? null, subscription.subscriptionStatus)}
+                        </TableCell>
+                        <TableCell className="capitalize">{subscription.billingCycle}</TableCell>
+                        <TableCell>${subscription.mrr || 0}</TableCell>
+                        <TableCell>{new Date(subscription.subscriptionStartDate).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {subscription.daysRemaining !== null ? `${subscription.daysRemaining} days` : 'Lifetime'}
+                        </TableCell>
+                        <TableCell>
+                          {subscription.daysRemaining !== null && subscription.daysRemaining !== undefined && (
+                            <div className="w-20">
+                              <Progress
+                                value={getDaysRemainingProgress(subscription.daysRemaining ?? null, subscription.billingCycle)}
+                                className="h-2"
+                              />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedSubscription(subscription);
+                                setShowEditDialog(true);
+                              }}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Details
+                              </DropdownMenuItem>
+
+                              {subscription.subscriptionStatus === 'active' && (
+                                <>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedSubscription(subscription);
+                                    setShowPlanChangeDialog(true);
+                                  }}>
+                                    <Shuffle className="mr-2 h-4 w-4" />
+                                    Change Plan
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedSubscription(subscription);
+                                    setShowPauseDialog(true);
+                                  }}>
+                                    <PauseCircle className="mr-2 h-4 w-4" />
+                                    Pause
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedSubscription(subscription);
+                                    setShowCancelDialog(true);
+                                  }}>
+                                    <Ban className="mr-2 h-4 w-4" />
+                                    Cancel
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleSuspendSubscription(subscription._id, 'Admin suspension')}>
+                                    <StopCircle className="mr-2 h-4 w-4" />
+                                    Suspend
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedSubscription(subscription);
+                                    setShowDowngradeDialog(true);
+                                  }}>
+                                    <ArrowDown className="mr-2 h-4 w-4" />
+                                    Schedule Downgrade
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+                              {(subscription.subscriptionStatus === 'cancelled' || subscription.subscriptionStatus === 'suspended') && (
+                                <DropdownMenuItem onClick={() => handleReactivateSubscription(subscription._id)}>
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  Reactivate
+                                </DropdownMenuItem>
+                              )}
+
+                              {subscription.subscriptionStatus === 'paused' && (
+                                <DropdownMenuItem onClick={() => handleResumeSubscription(subscription._id)}>
+                                  <PlayCircle className="mr-2 h-4 w-4" />
+                                  Resume
+                                </DropdownMenuItem>
+                              )}
+
+                              {subscription.scheduledPlanChange && (
+                                <DropdownMenuItem onClick={() => handleCancelScheduledChange(subscription._id)}>
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Cancel Scheduled Change
+                                </DropdownMenuItem>
+                              )}
+
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => handleDeleteSubscription(subscription._id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  {filterLoading ? (
+                    <span className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600"></div>
+                      Loading...
+                    </span>
+                  ) : (
+                    `Showing ${filteredSubscriptions.length} of ${enhancedSubscriptions.length} subscriptions`
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1 || filterLoading}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages || filterLoading}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Activity Tab */}
+        <TabsContent value="activity" className="space-y-6">
+          {analytics && analytics.recentActivity && analytics.recentActivity.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Recent Activity
+                  <Badge variant="secondary" className="ml-auto">
+                    {analytics.recentActivity.length} {analytics.recentActivity.length === 1 ? 'Activity' : 'Activities'}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {analytics.recentActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-lg">
+                          {activity.userName.charAt(0).toUpperCase()}
                         </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedSubscription(subscription);
-                            setShowEditDialog(true);
-                          }}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Details
-                          </DropdownMenuItem>
-                          
-                          {subscription.status === 'active' && (
-                            <>
-                              <DropdownMenuItem onClick={() => {
-                                setSelectedSubscription(subscription);
-                                setShowPlanChangeDialog(true);
-                              }}>
-                                <Shuffle className="mr-2 h-4 w-4" />
-                                Change Plan
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
-                                setSelectedSubscription(subscription);
-                                setShowPauseDialog(true);
-                              }}>
-                                <PauseCircle className="mr-2 h-4 w-4" />
-                                Pause
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
-                                setSelectedSubscription(subscription);
-                                setShowCancelDialog(true);
-                              }}>
-                                <Ban className="mr-2 h-4 w-4" />
-                                Cancel
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleSuspendSubscription(subscription._id, 'Admin suspension')}>
-                                <StopCircle className="mr-2 h-4 w-4" />
-                                Suspend
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
-                                setSelectedSubscription(subscription);
-                                setShowDowngradeDialog(true);
-                              }}>
-                                <ArrowDown className="mr-2 h-4 w-4" />
-                                Schedule Downgrade
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          
-                          {(subscription.status === 'cancelled' || subscription.status === 'suspended') && (
-                            <DropdownMenuItem onClick={() => handleReactivateSubscription(subscription._id)}>
-                              <RotateCcw className="mr-2 h-4 w-4" />
-                              Reactivate
-                            </DropdownMenuItem>
-                          )}
-
-                          {subscription.status === 'paused' && (
-                            <DropdownMenuItem onClick={() => handleResumeSubscription(subscription._id)}>
-                              <PlayCircle className="mr-2 h-4 w-4" />
-                              Resume
-                            </DropdownMenuItem>
-                          )}
-
-                          {subscription.scheduledPlanChange && (
-                            <DropdownMenuItem onClick={() => handleCancelScheduledChange(subscription._id)}>
-                              <XCircle className="mr-2 h-4 w-4" />
-                              Cancel Scheduled Change
-                            </DropdownMenuItem>
-                          )}
-                          
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-red-600"
-                            onClick={() => handleDeleteSubscription(subscription._id)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-muted-foreground">
-              Showing {filteredSubscriptions.length} of {subscriptions.length} subscriptions
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <p className="font-semibold text-gray-900 dark:text-white">{activity.userName}</p>
+                            {getStatusBadge(activity.status)}
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{activity.email}</p>
+                          <div className="flex items-center gap-3 flex-wrap text-sm">
+                            <Badge variant="outline" className="capitalize">
+                              {activity.billingCycle}
+                            </Badge>
+                            {activity.mrr > 0 && (
+                              <div className="flex items-center gap-1">
+                                <DollarSign className="w-3 h-3 text-green-600" />
+                                <span className="text-green-600 font-semibold">${activity.mrr}/mo</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                              <Calendar className="w-3 h-3" />
+                              <span className="text-xs">
+                                {new Date(activity.updatedAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Clock className="w-12 h-12 text-gray-400 mb-4" />
+                <p className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">No Recent Activity</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500">There are no recent subscription activities to display.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Dialogs */}
       {selectedSubscription && (
@@ -793,8 +972,8 @@ function EditSubscriptionDialog({ subscription, open, onClose, onSave }: {
   onSave: (id: string, updates: UpdateSubscriptionRequest) => void;
 }) {
   const [formData, setFormData] = useState({
-    status: subscription.status,
-    price: subscription.price,
+    status: subscription.subscriptionStatus,
+    price: subscription.mrr,
     billingCycle: subscription.billingCycle,
     adminNotes: subscription.adminNotes || ''
   });
@@ -805,7 +984,7 @@ function EditSubscriptionDialog({ subscription, open, onClose, onSave }: {
         <DialogHeader>
           <DialogTitle>Edit Subscription</DialogTitle>
           <DialogDescription>
-            Update subscription details for {subscription.userId?.name || 'User'}
+            Update subscription details for {subscription.name || 'User'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -884,7 +1063,7 @@ function CancelSubscriptionDialog({ subscription, open, onClose, onSave }: {
         <DialogHeader>
           <DialogTitle>Cancel Subscription</DialogTitle>
           <DialogDescription>
-            Are you sure you want to cancel {subscription.userId?.name || 'this user'}'s subscription?
+            Are you sure you want to cancel {subscription.name || 'this user'}'s subscription?
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -902,8 +1081,8 @@ function CancelSubscriptionDialog({ subscription, open, onClose, onSave }: {
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Keep Subscription</Button>
-          <Button 
-            variant="destructive" 
+          <Button
+            variant="destructive"
             onClick={() => onSave(subscription._id, reason)}
             disabled={!reason.trim()}
           >
@@ -930,7 +1109,7 @@ function PauseSubscriptionDialog({ subscription, open, onClose, onSave }: {
         <DialogHeader>
           <DialogTitle>Pause Subscription</DialogTitle>
           <DialogDescription>
-            Temporarily pause {subscription.userId?.name || 'this user'}'s subscription
+            Temporarily pause {subscription.name || 'this user'}'s subscription
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -959,7 +1138,7 @@ function PauseSubscriptionDialog({ subscription, open, onClose, onSave }: {
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button 
+          <Button
             onClick={() => onSave(subscription._id, duration, reason)}
             disabled={!reason.trim()}
           >
@@ -984,47 +1163,59 @@ function PlanChangeDialog({ subscription, availablePlans, open, onClose, onSave 
   const [changeType, setChangeType] = useState<'immediate' | 'scheduled'>('immediate');
 
   const selectedPlan = availablePlans.find(plan => plan._id === selectedPlanId);
-  const currentPlan = availablePlans.find(plan => plan.name === subscription.planName);
+
+  // Find current plan by matching displayName with subscription.currentPlan
+  const currentPlan = availablePlans.find(
+    plan => plan.displayName === subscription.currentPlan || plan.name === subscription.currentPlan
+  );
 
   // Get available billing cycles for selected plan
   const getAvailableBillingCycles = (plan: Plan) => {
     const cycles: Array<{ value: string; label: string; price: number }> = [];
-    
-    if (plan.pricing.monthly) {
+
+    if (plan.pricing.monthly?.price !== undefined) {
       cycles.push({
         value: 'monthly',
         label: 'Monthly',
         price: plan.pricing.monthly.price
       });
     }
-    
-    if (plan.pricing.annual) {
+
+    if (plan.pricing.annual?.price !== undefined) {
       cycles.push({
         value: 'annual',
         label: 'Annual',
         price: plan.pricing.annual.price
       });
     }
-    
-    if (plan.pricing.oneTime) {
+
+    if (plan.pricing.oneTime?.price !== undefined) {
       cycles.push({
         value: 'oneTime',
         label: 'One Time',
         price: plan.pricing.oneTime.price
       });
     }
-    
+
     return cycles;
   };
 
   const availableCycles = selectedPlan ? getAvailableBillingCycles(selectedPlan) : [];
-  const currentPrice = subscription.price;
-  const newPrice = selectedPlan?.pricing[billingCycle as keyof typeof selectedPlan.pricing]?.price || 0;
+  const currentPrice = subscription.mrr || 0;
+
+  // Get the price from the selected billing cycle with proper null checks
+  const getSelectedPrice = (): number => {
+    if (!selectedPlan) return 0;
+    const pricingOption = selectedPlan.pricing[billingCycle as keyof typeof selectedPlan.pricing];
+    return pricingOption?.price || 0;
+  };
+
+  const newPrice = getSelectedPrice();
   const priceDifference = newPrice - currentPrice;
 
   const getPlanChangeType = () => {
     if (!selectedPlan || !currentPlan) return 'change';
-    
+
     // Simple logic based on price and access level
     if (selectedPlan.accessLevel > currentPlan.accessLevel || newPrice > currentPrice) {
       return 'upgrade';
@@ -1048,26 +1239,26 @@ function PlanChangeDialog({ subscription, availablePlans, open, onClose, onSave 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shuffle className="w-5 h-5" />
             Change Subscription Plan
           </DialogTitle>
           <DialogDescription>
-            Change {subscription.userId?.name || 'this user'}'s subscription plan
+            Change {subscription.name || 'this user'}'s subscription plan
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6 px-1">{/* Reduced spacing on mobile */}
           {/* Current Plan Info */}
           <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
             <h3 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Current Plan</h3>
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold">{subscription.planName}</p>
+                <p className="font-semibold">{subscription.currentPlan}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {subscription.billingCycle} • ${subscription.price}
+                  {subscription.billingCycle} • ${subscription.mrr}
                 </p>
               </div>
               <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -1077,15 +1268,15 @@ function PlanChangeDialog({ subscription, availablePlans, open, onClose, onSave 
           </div>
 
           {/* Change Type */}
-          <div className=' w-full flex-1'>
-            <Label htmlFor="changeType" className='pb-3'>Change Type</Label>
-            <Select  value={changeType} onValueChange={(value: 'immediate' | 'scheduled') => setChangeType(value)}>
-              <SelectTrigger className='flex-1'>
+          <div className="w-full">
+            <Label htmlFor="changeType" className="block mb-2">Change Type</Label>
+            <Select value={changeType} onValueChange={(value: 'immediate' | 'scheduled') => setChangeType(value)}>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className='flex-1'>
+              <SelectContent>
                 <SelectItem value="immediate">
-                  <div className="flex items-center gap-2 ">
+                  <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4" />
                     Immediate Change
                   </div>
@@ -1102,51 +1293,55 @@ function PlanChangeDialog({ subscription, availablePlans, open, onClose, onSave 
 
           {/* Effective Date */}
           {changeType === 'scheduled' && (
-            <div>
-              <Label htmlFor="effectiveDate">Effective Date</Label>
+            <div className="w-full">
+              <Label htmlFor="effectiveDate" className="block mb-2">Effective Date</Label>
               <Input
                 id="effectiveDate"
                 type="date"
                 value={effectiveDate}
                 onChange={(e) => setEffectiveDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
+                className="w-full"
               />
             </div>
           )}
 
           {/* Plan Selection */}
-          <div className='flex-1 w-full'>
-            <Label htmlFor="planSelect" className='pb-3'>Select New Plan</Label>
+          <div className="w-full">
+            <Label htmlFor="planSelect" className="block mb-2">Select New Plan</Label>
             <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose a plan..." />
               </SelectTrigger>
               <SelectContent className="max-h-60">
                 {availablePlans
-                  .filter(plan => plan._id !== currentPlan?._id)
+                  .filter(plan =>
+                    plan.displayName !== subscription.currentPlan &&
+                    plan.name !== subscription.currentPlan
+                  )
                   .map((plan) => (
-                  <SelectItem key={plan._id} value={plan._id}>
-                    <div className="flex items-center justify-between w-full">
-                      <div>
-                        <p className="font-medium">{plan.displayName}</p>
-                        <p className="text-sm text-gray-500 capitalize">{plan.category} • {plan.planType}</p>
+                    <SelectItem key={plan._id} value={plan._id}>
+                      <div className="flex items-center justify-between w-full">
+                        <div>
+                          <p className="font-medium">{plan.displayName}</p>
+                          <p className="text-sm text-gray-500 capitalize">{plan.category} • {plan.planType}</p>
+                        </div>
+                        {plan.isPopular && (
+                          <Badge variant="secondary" className="ml-2">Popular</Badge>
+                        )}
                       </div>
-                      {plan.isPopular && (
-                        <Badge variant="secondary" className="ml-2">Popular</Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
 
           {/* Billing Cycle Selection */}
           {selectedPlan && (
-            <div>
-              <Label htmlFor="billingCycle">Billing Cycle</Label>
+            <div className="w-full">
+              <Label htmlFor="billingCycle" className="block mb-2">Billing Cycle</Label>
               <Select value={billingCycle} onValueChange={(value: 'monthly' | 'annual' | 'oneTime') => setBillingCycle(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1165,35 +1360,35 @@ function PlanChangeDialog({ subscription, availablePlans, open, onClose, onSave 
 
           {/* Price Comparison */}
           {selectedPlan && (
-            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <div className="bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg">
               <h3 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-3">Price Comparison</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Current Price:</span>
-                  <span>${currentPrice}</span>
+              <div className="space-y-2 text-sm sm:text-base">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 dark:text-gray-400">Current Price:</span>
+                  <span className="font-medium">${currentPrice}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>New Price:</span>
-                  <span>${newPrice}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 dark:text-gray-400">New Price:</span>
+                  <span className="font-medium">${newPrice}</span>
                 </div>
-                <div className="flex justify-between border-t pt-2">
+                <div className="flex justify-between items-center border-t pt-2 mt-2">
                   <span className="font-medium">Difference:</span>
-                  <span className={`font-medium ${priceDifference >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  <span className={`font-bold ${priceDifference >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {priceDifference >= 0 ? '+' : ''}${priceDifference}
                   </span>
                 </div>
               </div>
 
               {/* Change Type Badge */}
-              <div className="mt-3 flex items-center gap-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Change Type:</span>
-                <Badge 
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Change Type:</span>
+                <Badge
                   className={
-                    planChangeType === 'upgrade' 
+                    planChangeType === 'upgrade'
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                       : planChangeType === 'downgrade'
-                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                   }
                 >
                   {planChangeType === 'upgrade' && <ArrowUp className="w-3 h-3 mr-1" />}
@@ -1226,20 +1421,22 @@ function PlanChangeDialog({ subscription, availablePlans, open, onClose, onSave 
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
             disabled={!selectedPlanId || !billingCycle || (changeType === 'scheduled' && !effectiveDate)}
-            className={
-              planChangeType === 'upgrade' 
-                ? 'bg-green-600 hover:bg-green-700'
-                : planChangeType === 'downgrade'
-                ? 'bg-yellow-600 hover:bg-yellow-700'
-                : ''
-            }
+            className={[
+              'w-full sm:w-auto',
+              planChangeType === 'upgrade' && 'bg-green-600 hover:bg-green-700',
+              planChangeType === 'downgrade' && 'bg-yellow-600 hover:bg-yellow-700'
+            ].filter(Boolean).join(' ')}
           >
             {changeType === 'immediate' ? 'Change Plan Now' : 'Schedule Plan Change'}
           </Button>

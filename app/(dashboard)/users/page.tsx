@@ -133,8 +133,13 @@ function UsersPageContent() {
   };
 
   const getTabUsers = (): UserProfile[] => {
-    if (!users) return [];
-    
+    if (!users || !Array.isArray(users)) {
+      console.warn('⚠️ Users is null or not an array:', users);
+      return [];
+    }
+
+    console.log('🔍 Filtering users for tab:', currentTab, 'Total users:', users.length);
+
     switch (currentTab) {
       case 'active':
         return users.filter((user: UserProfile) => user.status === 'active');
@@ -164,8 +169,8 @@ function UsersPageContent() {
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={handleRefresh}
             disabled={loading}
@@ -173,15 +178,15 @@ function UsersPageContent() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={handleExportUsers}
           >
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button 
+          <Button
             size="sm"
             onClick={() => setShowCreateDialog(true)}
           >
@@ -322,7 +327,7 @@ function UsersPageContent() {
                 )}
               </TabsTrigger>
             </TabsList>
-            
+
             <div className="mt-6">
               <UserDataTable
                 users={tabUsers}

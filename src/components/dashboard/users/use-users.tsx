@@ -34,15 +34,26 @@ export function useUsers(filters?: UserFilters): UseUsersReturn {
     try {
       setLoading(true);
       setError(null);
-      
+
+      console.log('🔍 Fetching users with filters:', filters);
+
       // Fetch users and stats in parallel
       const [usersResponse, statsResponse] = await Promise.all([
         UserService.getUsers(filters),
         UserService.getUserStats()
       ]);
 
+      console.log('📦 Users API Response:', usersResponse);
+      console.log('📊 Stats API Response:', statsResponse);
+
       if (usersResponse.success) {
-        setUsers(usersResponse.data.users);
+        // Handle both response formats: { data: users[] } or { data: { users: [] } }
+        const userData = Array.isArray(usersResponse.data)
+          ? usersResponse.data
+          : usersResponse.data?.users || [];
+
+        console.log('✅ Setting users:', userData.length, 'users found');
+        setUsers(userData);
       } else {
         throw new Error(usersResponse.message || 'Failed to fetch users');
       }
@@ -50,10 +61,13 @@ export function useUsers(filters?: UserFilters): UseUsersReturn {
       if (statsResponse.success) {
         setUserStats(statsResponse.data);
       } else {
-        throw new Error(statsResponse.message || 'Failed to fetch user stats');
+        console.warn('⚠️ Stats failed but continuing:', statsResponse.message);
+        // Don't throw error for stats, just log it
+        setUserStats(null);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      console.error('❌ Error fetching users:', err);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -65,7 +79,7 @@ export function useUsers(filters?: UserFilters): UseUsersReturn {
     try {
       setLoading(true);
       const response = await UserService.createUser(userData);
-      
+
       if (response.success) {
         toast.success('User created successfully');
         await fetchUsers(); // Refetch to get updated list
@@ -85,7 +99,7 @@ export function useUsers(filters?: UserFilters): UseUsersReturn {
     try {
       setLoading(true);
       const response = await UserService.updateUser(userId, userData);
-      
+
       if (response.success) {
         toast.success('User updated successfully');
         await fetchUsers(); // Refetch to get updated list
@@ -105,7 +119,7 @@ export function useUsers(filters?: UserFilters): UseUsersReturn {
     try {
       setLoading(true);
       const response = await UserService.deleteUser(userId);
-      
+
       if (response.success) {
         toast.success('User deleted successfully');
         await fetchUsers(); // Refetch to get updated list
@@ -125,14 +139,14 @@ export function useUsers(filters?: UserFilters): UseUsersReturn {
     try {
       setLoading(true);
       const response = await UserService.bulkAction(action);
-      
+
       if (response.success) {
         toast.success(`Bulk action completed successfully. Processed ${response.data.processedCount} users.`);
-        
+
         if (response.data.failedCount > 0) {
           toast.warning(`${response.data.failedCount} users failed to process.`);
         }
-        
+
         await fetchUsers(); // Refetch to get updated list
       } else {
         throw new Error(response.message || 'Failed to perform bulk action');

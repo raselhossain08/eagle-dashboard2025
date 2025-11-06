@@ -23,3 +23,9 @@ export {
   useAnalyticsTracker,
   useBatchAnalytics
 } from './useAnalytics';
+
+// Transaction hooks
+export {
+  useTransactions,
+  useTransactionStats
+} from './useTransactions';
