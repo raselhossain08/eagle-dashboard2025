@@ -80,7 +80,7 @@ export class AnalyticsService {
 
   async getVisitorMetrics(filters?: AnalyticsFilters): Promise<VisitorMetrics> {
     const queryParams = new URLSearchParams();
-    
+
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -88,11 +88,11 @@ export class AnalyticsService {
         }
       });
     }
-    
+
     const response = await ApiService.get<VisitorMetrics>(
       `${AnalyticsService.ENDPOINT}/visitors?${queryParams}`
     );
-    
+
     return response;
   }
 
@@ -100,7 +100,7 @@ export class AnalyticsService {
     const response = await ApiService.get<RealTimeMetrics>(
       `${AnalyticsService.ENDPOINT}/realtime`
     );
-    
+
     return response;
   }
 
@@ -130,7 +130,7 @@ export class AnalyticsService {
       users: number;
       conversionRate: number;
     }>>(`${AnalyticsService.ENDPOINT}/funnel`);
-    
+
     return response;
   }
 
@@ -144,7 +144,7 @@ export class AnalyticsService {
       users: number;
       sessions: number;
     }>>(`${AnalyticsService.ENDPOINT}/geographic`);
-    
+
     return response;
   }
 
@@ -158,7 +158,7 @@ export class AnalyticsService {
       browsers: Array<{ name: string; users: number; percentage: number }>;
       operatingSystems: Array<{ name: string; users: number; percentage: number }>;
     }>(`${AnalyticsService.ENDPOINT}/devices`);
-    
+
     return response;
   }
 
@@ -179,28 +179,61 @@ export class AnalyticsService {
   }
 
   // Methods for visitor analytics page
-  async getOverviewData(dateRange: string): Promise<AnalyticsOverviewData> {
-    const response = await ApiService.get<AnalyticsOverviewData>(
-      `${AnalyticsService.ENDPOINT}/overview?dateRange=${dateRange}`
-    );
-    
-    return response;
+  async getOverviewData(startDate?: string, endDate?: string, filters?: any): Promise<any> {
+    const params = new URLSearchParams();
+
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (filters) {
+      Object.keys(filters).forEach(key => {
+        if (filters[key] !== undefined && filters[key] !== null) {
+          params.append(key, filters[key].toString());
+        }
+      });
+    }
+
+    const queryString = params.toString();
+    const endpoint = queryString
+      ? `${AnalyticsService.ENDPOINT}/overview?${queryString}`
+      : `${AnalyticsService.ENDPOINT}/overview`;
+
+    const response = await ApiService.get<{ success: boolean; data: any }>(endpoint);
+    return response.data || response;
   }
 
   async getTimelineData(dateRange: string): Promise<TimelineData[]> {
     const response = await ApiService.get<TimelineData[]>(
       `${AnalyticsService.ENDPOINT}/timeline?dateRange=${dateRange}`
     );
-    
+
     return response;
   }
 
-  async getRealtimeData(): Promise<RealtimeData> {
-    const response = await ApiService.get<RealtimeData>(
-      `${AnalyticsService.ENDPOINT}/realtime-extended`
+  async getRealtimeData(): Promise<any> {
+    const response = await ApiService.get<{ success: boolean; data: any }>(
+      `${AnalyticsService.ENDPOINT}/realtime`
     );
-    
-    return response;
+
+    return response.data || response;
+  }
+
+  async exportAnalyticsData(
+    startDate: string,
+    endDate: string,
+    format: 'json' | 'csv' = 'json',
+    dataTypes: string[] = ['sessions', 'events']
+  ): Promise<any> {
+    const params = new URLSearchParams({
+      startDate,
+      endDate,
+      format,
+      type: dataTypes.join(',')
+    });
+
+    const response = await ApiService.get<{ success: boolean; data: any }>(
+      `${AnalyticsService.ENDPOINT}/export?${params.toString()}`
+    );
+    return response.data || response;
   }
 }
 

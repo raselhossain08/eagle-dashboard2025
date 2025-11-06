@@ -40,7 +40,8 @@ import {
   MessageSquare,
   StickyNote,
   BookOpen,
-  RefreshCw
+  RefreshCw,
+  User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -48,7 +49,7 @@ import { useState, useEffect } from "react";
 const mainNavItems = [
   {
     title: "Overview",
-    href: "",
+    href: "/",
     icon: Home,
     badge: null,
   },
@@ -274,6 +275,18 @@ const managementItems = [
 ];
 
 const settingsItems = [
+  {
+    title: "Profile",
+    href: "/profile",
+    icon: User,
+    badge: null,
+  },
+  {
+    title: "Account Settings",
+    href: "/settings",
+    icon: Settings,
+    badge: null,
+  },
   {
     title: "System Settings",
     href: "/system-settings",

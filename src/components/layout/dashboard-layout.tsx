@@ -23,14 +23,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header */}
       <DashboardHeader onToggleSidebar={toggleSidebar} />
-      
+
       <div className="flex">
         {/* Sidebar */}
-        <DashboardSidebar />
-        
+        <DashboardSidebar
+          mobileMenuOpen={isSidebarOpen}
+          onMobileMenuClose={closeSidebar}
+        />
+
         {/* Main Content */}
-        <main className="flex-1 lg:ml-72 pt-6 pb-8 px-4 sm:px-6 lg:px-8 transition-all duration-300">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 lg:ml-64 pt-6 pb-8 transition-all duration-300">
+          <div className="mx-auto">
             {children}
           </div>
         </main>
