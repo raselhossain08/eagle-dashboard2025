@@ -33,7 +33,7 @@ export default function SubscriptionsPage() {
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
 
     // Filters
-    const [status, setStatus] = useState('');
+    const [status, setStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
@@ -46,7 +46,7 @@ export default function SubscriptionsPage() {
             const response = await paypalService.getSubscriptions({
                 page: 1,
                 limit: 20,
-                status: status || undefined,
+                status: status === 'all' ? undefined : status,
                 searchTerm: searchTerm || undefined,
             });
             setSubscriptions(response.data);
@@ -101,7 +101,7 @@ export default function SubscriptionsPage() {
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Status</SelectItem>
+                                <SelectItem value="all">All Status</SelectItem>
                                 <SelectItem value="active">Active</SelectItem>
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
                                 <SelectItem value="suspended">Suspended</SelectItem>

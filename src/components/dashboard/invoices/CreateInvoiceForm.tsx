@@ -53,7 +53,7 @@ export function CreateInvoiceForm() {
         resolver: zodResolver(invoiceSchema),
         defaultValues: {
             userId: '',
-            subscriptionId: '',
+            subscriptionId: 'none',
             items: [{ description: '', quantity: 1, unitPrice: 0 }],
             taxRate: 8.25,
             dueDate: '',
@@ -93,11 +93,16 @@ export function CreateInvoiceForm() {
     const onSubmit = async (data: InvoiceFormData) => {
         try {
             setIsSubmitting(true);
+            // Handle "none" for optional subscriptionId
+            const submitData = {
+                ...data,
+                subscriptionId: data.subscriptionId === 'none' ? undefined : data.subscriptionId,
+            };
             // TODO: Replace with actual API call
             const response = await fetch('/api/invoices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
+                body: JSON.stringify(submitData),
             });
 
             if (!response.ok) throw new Error('Failed to create invoice');
@@ -155,7 +160,7 @@ export function CreateInvoiceForm() {
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="">None</SelectItem>
+                                            <SelectItem value="none">None</SelectItem>
                                             <SelectItem value="sub1">Subscription 1</SelectItem>
                                         </SelectContent>
                                     </Select>

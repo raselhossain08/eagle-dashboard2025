@@ -37,8 +37,8 @@ export default function TaxRatesPage() {
 
     // Filters
     const [country, setCountry] = useState('');
-    const [taxType, setTaxType] = useState('');
-    const [active, setActive] = useState<string>('true');
+    const [taxType, setTaxType] = useState('all');
+    const [active, setActive] = useState<string>('all');
 
     useEffect(() => {
         loadTaxRates();
@@ -51,7 +51,7 @@ export default function TaxRatesPage() {
                 page: 1,
                 limit: 20,
                 country: country || undefined,
-                taxType: taxType || undefined,
+                taxType: taxType === 'all' ? undefined : taxType,
                 active: active === 'true' ? true : active === 'false' ? false : undefined,
             });
             setTaxRates(response.data || []);
@@ -112,7 +112,7 @@ export default function TaxRatesPage() {
                                 <SelectValue placeholder="Tax Type" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Types</SelectItem>
+                                <SelectItem value="all">All Types</SelectItem>
                                 <SelectItem value="SALES_TAX">Sales Tax</SelectItem>
                                 <SelectItem value="VAT">VAT</SelectItem>
                                 <SelectItem value="GST">GST</SelectItem>
@@ -124,7 +124,7 @@ export default function TaxRatesPage() {
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Status</SelectItem>
+                                <SelectItem value="all">All Status</SelectItem>
                                 <SelectItem value="true">Active</SelectItem>
                                 <SelectItem value="false">Inactive</SelectItem>
                             </SelectContent>

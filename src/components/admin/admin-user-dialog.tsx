@@ -140,7 +140,7 @@ export function AdminUserDialog({
 }: AdminUserDialogProps) {
   const { hasPermission, canManageRole, userRole } = usePermissions();
   const [activeTab, setActiveTab] = useState('basic');
-  
+
   const form = useForm<AdminUserFormData>({
     resolver: zodResolver(adminUserSchema),
     defaultValues: {
@@ -150,7 +150,7 @@ export function AdminUserDialog({
       email: '',
       password: '',
       role: 'read_only',
-      department: '',
+      department: 'none',
       phone: '',
       timezone: 'UTC',
       isActive: true,
@@ -168,11 +168,11 @@ export function AdminUserDialog({
         email: user.email,
         password: '', // Never pre-fill password
         role: user.role,
-        department: user.department || '',
+        department: user.department || 'none',
         phone: user.phone || '',
-        timezone: user.timezone || 'UTC',
+        timezone: 'UTC', // Default timezone since it's not in AdminUser type
         isActive: user.isActive,
-        customPermissions: user.customPermissions || []
+        customPermissions: [] // Default empty since it's not in AdminUser type
       });
     } else if (mode === 'create') {
       form.reset({
@@ -182,7 +182,7 @@ export function AdminUserDialog({
         email: '',
         password: '',
         role: 'read_only',
-        department: '',
+        department: 'none',
         phone: '',
         timezone: 'UTC',
         isActive: true,
@@ -193,15 +193,33 @@ export function AdminUserDialog({
 
   const handleSubmit = async (data: AdminUserFormData) => {
     try {
+      // Handle "none" for optional department
+      const submitData = {
+        ...data,
+        department: data.department === 'none' ? undefined : data.department,
+      };
+
       if (mode === 'create') {
         await onSubmit({
-          ...data,
-          password: data.password!
+          name: `${submitData.firstName} ${submitData.lastName}`,
+          email: submitData.email,
+          password: submitData.password!,
+          role: submitData.role as any,
+          status: submitData.isActive ? 'active' : 'inactive',
+          phone: submitData.phone,
+          permissions: submitData.customPermissions,
         } as CreateAdminUserRequest);
         toast.success('Admin user created successfully');
       } else if (mode === 'edit') {
-        const { password, username, ...updateData } = data;
-        await onSubmit(updateData as UpdateAdminUserRequest);
+        const { password, username, ...updateData } = submitData;
+        await onSubmit({
+          name: `${updateData.firstName} ${updateData.lastName}`,
+          email: updateData.email,
+          role: updateData.role as any,
+          status: updateData.isActive ? 'active' : 'inactive',
+          phone: updateData.phone,
+          permissions: updateData.customPermissions,
+        } as UpdateAdminUserRequest);
         toast.success('Admin user updated successfully');
       }
       onOpenChange(false);
@@ -231,30 +249,30 @@ export function AdminUserDialog({
 
   const isViewMode = mode === 'view';
   const isCreateMode = mode === 'create';
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-[95vw] sm:max-w-[90vw] lg:max-w-5xl xl:max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             {isCreateMode ? (
               <>
-                <User className="h-5 w-5" />
+                <User className="h-5 w-5 sm:h-6 sm:w-6" />
                 Create Admin User
               </>
             ) : isViewMode ? (
               <>
-                <User className="h-5 w-5" />
+                <User className="h-5 w-5 sm:h-6 sm:w-6" />
                 View Admin User
               </>
             ) : (
               <>
-                <User className="h-5 w-5" />
+                <User className="h-5 w-5 sm:h-6 sm:w-6" />
                 Edit Admin User
               </>
             )}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm sm:text-base">
             {isCreateMode && 'Create a new admin user with appropriate roles and permissions.'}
             {isViewMode && 'View admin user details and permissions.'}
             {mode === 'edit' && 'Update admin user information, roles, and permissions.'}
@@ -262,39 +280,42 @@ export function AdminUserDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="basic" className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Basic Info
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 sm:space-y-6 flex-1 flex flex-col overflow-hidden">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 flex-1 flex flex-col overflow-hidden">
+              <TabsList className="grid w-full grid-cols-3 gap-1">
+                <TabsTrigger value="basic" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Basic Info</span>
+                  <span className="sm:hidden">Basic</span>
                 </TabsTrigger>
-                <TabsTrigger value="permissions" className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  Permissions
+                <TabsTrigger value="permissions" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Permissions</span>
+                  <span className="sm:hidden">Perms</span>
                 </TabsTrigger>
-                <TabsTrigger value="settings" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
+                <TabsTrigger value="settings" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                   Settings
                 </TabsTrigger>
               </TabsList>
 
               {/* Basic Information Tab */}
-              <TabsContent value="basic" className="space-y-4">
-                <ScrollArea className="h-[400px] pr-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TabsContent value="basic" className="space-y-4 flex-1 overflow-hidden">
+                <ScrollArea className="h-[400px] sm:h-[450px] pr-2 sm:pr-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 p-1">
                     {/* First Name */}
                     <FormField
                       control={form.control}
                       name="firstName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>First Name</FormLabel>
+                          <FormLabel className="text-sm sm:text-base">First Name</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="Enter first name"
                               disabled={isViewMode}
+                              className="text-sm sm:text-base"
                             />
                           </FormControl>
                           <FormMessage />
@@ -308,12 +329,13 @@ export function AdminUserDialog({
                       name="lastName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Last Name</FormLabel>
+                          <FormLabel className="text-sm sm:text-base">Last Name</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="Enter last name"
                               disabled={isViewMode}
+                              className="text-sm sm:text-base"
                             />
                           </FormControl>
                           <FormMessage />
@@ -327,15 +349,16 @@ export function AdminUserDialog({
                       name="username"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Username</FormLabel>
+                          <FormLabel className="text-sm sm:text-base">Username</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="Enter username"
                               disabled={isViewMode || mode === 'edit'}
+                              className="text-sm sm:text-base"
                             />
                           </FormControl>
-                          <FormDescription>
+                          <FormDescription className="text-xs sm:text-sm">
                             Username cannot be changed after creation
                           </FormDescription>
                           <FormMessage />
@@ -349,7 +372,7 @@ export function AdminUserDialog({
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email Address</FormLabel>
+                          <FormLabel className="text-sm sm:text-base">Email Address</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -357,7 +380,7 @@ export function AdminUserDialog({
                                 {...field}
                                 type="email"
                                 placeholder="Enter email address"
-                                className="pl-10"
+                                className="pl-10 text-sm sm:text-base"
                                 disabled={isViewMode}
                               />
                             </div>
@@ -374,7 +397,7 @@ export function AdminUserDialog({
                         name="password"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Password</FormLabel>
+                            <FormLabel className="text-sm sm:text-base">Password</FormLabel>
                             <FormControl>
                               <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -382,11 +405,11 @@ export function AdminUserDialog({
                                   {...field}
                                   type="password"
                                   placeholder="Enter secure password"
-                                  className="pl-10"
+                                  className="pl-10 text-sm sm:text-base"
                                 />
                               </div>
                             </FormControl>
-                            <FormDescription>
+                            <FormDescription className="text-xs sm:text-sm">
                               Minimum 8 characters with mixed case, numbers, and symbols
                             </FormDescription>
                             <FormMessage />
@@ -401,14 +424,14 @@ export function AdminUserDialog({
                       name="phone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Phone Number (Optional)</FormLabel>
+                          <FormLabel className="text-sm sm:text-base">Phone Number (Optional)</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                               <Input
                                 {...field}
                                 placeholder="Enter phone number"
-                                className="pl-10"
+                                className="pl-10 text-sm sm:text-base"
                                 disabled={isViewMode}
                               />
                             </div>
@@ -424,7 +447,7 @@ export function AdminUserDialog({
                       name="role"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Role</FormLabel>
+                          <FormLabel className="text-sm sm:text-base">Role</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             defaultValue={field.value}
@@ -437,8 +460,8 @@ export function AdminUserDialog({
                             </FormControl>
                             <SelectContent>
                               {availableRoles.map((role) => (
-                                <SelectItem 
-                                  key={role.id} 
+                                <SelectItem
+                                  key={role.id}
                                   value={role.id}
                                   disabled={!canManageRole(role.id)}
                                 >
@@ -475,7 +498,7 @@ export function AdminUserDialog({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">No Department</SelectItem>
+                              <SelectItem value="none">No Department</SelectItem>
                               {AVAILABLE_DEPARTMENTS.map((dept) => (
                                 <SelectItem key={dept} value={dept}>
                                   {dept}
@@ -492,9 +515,9 @@ export function AdminUserDialog({
               </TabsContent>
 
               {/* Permissions Tab */}
-              <TabsContent value="permissions" className="space-y-4">
-                <ScrollArea className="h-[400px] pr-4">
-                  <div className="space-y-4">
+              <TabsContent value="permissions" className="space-y-4 flex-1 overflow-hidden">
+                <ScrollArea className="h-[400px] sm:h-[450px] pr-2 sm:pr-4">
+                  <div className="space-y-4 p-1">
                     {/* Role-based permissions info */}
                     <div className="p-4 bg-muted rounded-lg">
                       <div className="flex items-start gap-2">
@@ -569,9 +592,9 @@ export function AdminUserDialog({
               </TabsContent>
 
               {/* Settings Tab */}
-              <TabsContent value="settings" className="space-y-4">
-                <ScrollArea className="h-[400px] pr-4">
-                  <div className="space-y-6">
+              <TabsContent value="settings" className="space-y-4 flex-1 overflow-hidden">
+                <ScrollArea className="h-[400px] sm:h-[450px] pr-2 sm:pr-4">
+                  <div className="space-y-4 sm:space-y-6 p-1">
                     {/* Account Status */}
                     <div className="space-y-4">
                       <h4 className="font-medium">Account Status</h4>
@@ -654,12 +677,12 @@ export function AdminUserDialog({
                           <div>
                             <span className="font-medium text-muted-foreground">2FA Enabled:</span>
                             <div className="flex items-center gap-2">
-                              {user.twoFactorEnabled ? (
+                              {user.isTwoFactorEnabled ? (
                                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                               ) : (
                                 <AlertCircle className="h-4 w-4 text-yellow-600" />
                               )}
-                              <span>{user.twoFactorEnabled ? 'Yes' : 'No'}</span>
+                              <span>{user.isTwoFactorEnabled ? 'Yes' : 'No'}</span>
                             </div>
                           </div>
                         </div>
@@ -672,16 +695,17 @@ export function AdminUserDialog({
 
             {/* Footer */}
             {!isViewMode && (
-              <DialogFooter>
+              <DialogFooter className="border-t pt-4 flex-col sm:flex-row gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
+                  className="w-full sm:w-auto"
                 >
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                   <Save className="h-4 w-4 mr-2" />
                   {loading ? 'Saving...' : isCreateMode ? 'Create User' : 'Update User'}
                 </Button>

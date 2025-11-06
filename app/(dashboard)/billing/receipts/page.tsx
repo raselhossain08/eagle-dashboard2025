@@ -33,7 +33,7 @@ export default function ReceiptsPage() {
     const [isResendDialogOpen, setIsResendDialogOpen] = useState(false);
 
     // Filters
-    const [paymentMethod, setPaymentMethod] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('all');
     const [customerId, setCustomerId] = useState('');
 
     useEffect(() => {
@@ -46,7 +46,7 @@ export default function ReceiptsPage() {
             const response = await billingService.getReceipts({
                 page: 1,
                 limit: 20,
-                paymentMethod: paymentMethod || undefined,
+                paymentMethod: paymentMethod === 'all' ? undefined : paymentMethod,
                 customerId: customerId || undefined,
             });
             setReceipts(response.data || []);
@@ -84,7 +84,7 @@ export default function ReceiptsPage() {
                                 <SelectValue placeholder="Payment Method" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Methods</SelectItem>
+                                <SelectItem value="all">All Methods</SelectItem>
                                 <SelectItem value="PAYPAL">PayPal</SelectItem>
                                 <SelectItem value="CARD">Credit Card</SelectItem>
                                 <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>

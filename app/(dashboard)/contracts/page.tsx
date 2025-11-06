@@ -8,6 +8,7 @@ import ContractsTable from '@/components/dashboard/contracts/contracts-table';
 import ContractFormDialog from '@/components/dashboard/contracts/contract-form-dialog-complete';
 import SignatureWorkflowDialog from '@/components/dashboard/contracts/signature-workflow-dialog';
 import SignatureAuditTrail from '@/components/dashboard/contracts/signature-audit-trail';
+import ContractPreviewDialog from '@/components/dashboard/contracts/contract-preview-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ContractService } from '@/lib/services';
 import type {
@@ -15,7 +16,8 @@ import type {
   ContractTemplate,
   CreateContractRequest,
   UpdateContractRequest,
-  GetContractsParams
+  GetContractsParams,
+  SignatureSubmission
 } from '@/lib/services/contracts/contract.service';
 
 const ContractsManagement: React.FC = () => {
@@ -27,7 +29,9 @@ const ContractsManagement: React.FC = () => {
 
   // Form state
   const [formOpen, setFormOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  const [viewingContract, setViewingContract] = useState<any>(null);
 
   // Signature management state
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
@@ -58,19 +62,40 @@ const ContractsManagement: React.FC = () => {
         ...(selectedStatus !== 'all' && { status: selectedStatus as any }),
         ...(selectedTemplate !== 'all' && { templateId: selectedTemplate }),
         ...(selectedLocale !== 'all' && { locale: selectedLocale }),
+        ...(searchTerm.trim() && { search: searchTerm.trim() }),
       };
 
       const response = await ContractService.getContracts(queryParams);
 
       if (response.success && response.data) {
-        setContracts(response.data);
-        setTotalCount(response.pagination?.total || response.data.length);
+        // Extract contracts array from the nested data structure
+        // API returns { contracts: Contract[], pagination: any, statistics: any }
+        const responseData = response.data as any;
+        const contractsData = responseData.contracts || response.data;
+        const contractsArray = Array.isArray(contractsData) ? contractsData : [];
+        setContracts(contractsArray);
+        setTotalCount(response.pagination?.total || contractsArray.length);
       } else {
-        throw new Error(response.error || 'Failed to load contracts');
+        // Don't show error toast on initial load if endpoint doesn't exist
+        console.warn('Contracts endpoint returned error:', response.error);
+        setContracts([]);
+        setTotalCount(0);
+
+        // Only show error if it's not a 401/403/404
+        if (response.error && !response.error.includes('401') && !response.error.includes('404')) {
+          toast.error(response.error || 'Failed to load contracts');
+        }
       }
     } catch (error: any) {
       console.error('Load contracts error:', error);
-      toast.error(error.message || 'Failed to load contracts');
+      setContracts([]);
+      setTotalCount(0);
+
+      // Don't show error toast for auth/permission issues
+      const errorMessage = error.message || 'Failed to load contracts';
+      if (!errorMessage.includes('401') && !errorMessage.includes('Access denied') && !errorMessage.includes('404')) {
+        toast.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -85,9 +110,14 @@ const ContractsManagement: React.FC = () => {
 
       if (response.success && response.data) {
         setTemplates(response.data);
+      } else {
+        console.warn('Templates endpoint returned error:', response.error);
+        setTemplates([]);
       }
     } catch (error: any) {
       console.error('Load templates error:', error);
+      setTemplates([]);
+      // Silently fail - templates are optional for viewing contracts
     }
   };
 
@@ -101,15 +131,8 @@ const ContractsManagement: React.FC = () => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchTerm.trim()) {
-        // Implement client-side search for now
-        const filtered = contracts.filter(contract =>
-          contract.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          contract.parties.primary.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          contract.parties.secondary.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          contract.template.templateId.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        setContracts(filtered);
-        setTotalCount(filtered.length);
+        // Reload contracts with search term - let backend handle it
+        loadContracts();
       } else {
         loadContracts();
       }
@@ -169,10 +192,9 @@ const ContractsManagement: React.FC = () => {
     setFormOpen(true);
   };
 
-  const handleView = (contract: Contract) => {
-    // Implement view functionality (maybe a read-only modal)
-    console.log('View contract:', contract);
-    toast.info('View functionality coming soon');
+  const handleView = (contract: any) => {
+    setViewingContract(contract);
+    setPreviewOpen(true);
   };
 
   const handleDownload = async (contract: Contract) => {
@@ -353,7 +375,7 @@ const ContractsManagement: React.FC = () => {
       />
 
       <ContractsTable
-        contracts={contracts}
+        contracts={contracts as any}
         loading={loading}
         onView={handleView}
         onEdit={handleEdit}
@@ -364,6 +386,12 @@ const ContractsManagement: React.FC = () => {
         onSignContract={handleSignContract}
         onViewAuditTrail={handleViewAuditTrail}
         onSendReminder={handleSendReminder}
+      />
+
+      <ContractPreviewDialog
+        contract={viewingContract}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
       />
 
       <ContractFormDialog

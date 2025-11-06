@@ -9,14 +9,21 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import ContractService, { ContractTemplate } from '@/lib/services/contracts';
+import { ContractService } from '@/lib/services';
+import TemplateCreationDialog from '@/components/dashboard/contracts/template-creation-dialog';
+import type { ContractTemplate, CreateContractTemplateRequest } from '@/lib/services/contracts/contract.service';
 
 const ContractTemplatesManagement: React.FC = () => {
   const [templates, setTemplates] = useState<ContractTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [formLoading, setFormLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null>(null);
 
   // Load templates
   const loadTemplates = async () => {
@@ -55,11 +62,46 @@ const ContractTemplatesManagement: React.FC = () => {
   }, [searchTerm]);
 
   const handleCreateTemplate = () => {
-    toast.info('Template creation feature coming soon');
+    setEditingTemplate(null);
+    setDialogOpen(true);
   };
 
   const handleEditTemplate = (template: ContractTemplate) => {
-    toast.info(`Edit template: ${template.name}`);
+    setEditingTemplate(template);
+    setDialogOpen(true);
+  };
+
+  const handleTemplateSubmit = async (data: CreateContractTemplateRequest) => {
+    try {
+      setFormLoading(true);
+
+      if (editingTemplate) {
+        const response = await ContractService.updateContractTemplate(editingTemplate._id, data);
+        if (response.success) {
+          toast.success('Template updated successfully');
+          loadTemplates();
+          setDialogOpen(false);
+          setEditingTemplate(null);
+        } else {
+          throw new Error(response.error || 'Failed to update template');
+        }
+      } else {
+        const response = await ContractService.createContractTemplate(data);
+        if (response.success) {
+          toast.success('Template created successfully');
+          loadTemplates();
+          setDialogOpen(false);
+        } else {
+          throw new Error(response.error || 'Failed to create template');
+        }
+      }
+    } catch (error: any) {
+      console.error('Template submit error:', error);
+      toast.error(error.message || 'Failed to save template');
+      throw error;
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const handleViewTemplate = (template: ContractTemplate) => {
@@ -84,7 +126,7 @@ const ContractTemplatesManagement: React.FC = () => {
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
-    
+
     return (
       <Badge className={config.color}>
         {config.label}
@@ -103,7 +145,7 @@ const ContractTemplatesManagement: React.FC = () => {
     };
 
     const config = categoryConfig[category as keyof typeof categoryConfig] || categoryConfig.custom;
-    
+
     return (
       <Badge variant="outline" className={config.color}>
         {config.label}
@@ -112,10 +154,10 @@ const ContractTemplatesManagement: React.FC = () => {
   };
 
   const filteredTemplates = templates.filter(template => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       template.templateId.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     return matchesSearch;
   });
 
@@ -214,7 +256,7 @@ const ContractTemplatesManagement: React.FC = () => {
                 />
               </div>
             </div>
-            
+
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="All Categories" />
@@ -350,6 +392,15 @@ const ContractTemplatesManagement: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Template Creation/Edit Dialog */}
+      <TemplateCreationDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        template={editingTemplate}
+        onSubmit={handleTemplateSubmit}
+        loading={formLoading}
+      />
     </div>
   );
 };

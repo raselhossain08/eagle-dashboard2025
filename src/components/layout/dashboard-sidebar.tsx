@@ -101,12 +101,6 @@ const contractItems = [
     badge: null,
   },
   {
-    title: "Pending Contracts",
-    href: "/contracts/pending",
-    icon: Clock,
-    badge: null,
-  },
-  {
     title: "Document Templates",
     href: "/contract-templates",
     icon: Layout,

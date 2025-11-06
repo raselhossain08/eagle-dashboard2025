@@ -33,7 +33,7 @@ export default function TransactionsPage() {
 
     // Filters
     const [page, setPage] = useState(1);
-    const [status, setStatus] = useState('');
+    const [status, setStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
@@ -46,7 +46,7 @@ export default function TransactionsPage() {
             const response = await paypalService.getTransactions({
                 page,
                 limit: 10,
-                status: status || undefined,
+                status: status === 'all' ? undefined : status,
                 searchTerm: searchTerm || undefined,
             });
             setTransactions(response.data);
@@ -107,7 +107,7 @@ export default function TransactionsPage() {
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Status</SelectItem>
+                                <SelectItem value="all">All Status</SelectItem>
                                 <SelectItem value="completed">Completed</SelectItem>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="failed">Failed</SelectItem>

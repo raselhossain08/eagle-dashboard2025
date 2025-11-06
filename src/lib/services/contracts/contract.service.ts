@@ -275,7 +275,7 @@ export interface CreateContractTemplateRequest {
   legal?: Partial<ContractTemplate['legal']>;
 }
 
-export interface UpdateContractTemplateRequest extends Partial<CreateContractTemplateRequest> {}
+export interface UpdateContractTemplateRequest extends Partial<CreateContractTemplateRequest> { }
 
 export interface CreateContractRequest {
   templateId: string;
@@ -293,7 +293,7 @@ export interface CreateContractRequest {
   financialTerms?: Contract['financialTerms'];
 }
 
-export interface UpdateContractRequest extends Partial<CreateContractRequest> {}
+export interface UpdateContractRequest extends Partial<CreateContractRequest> { }
 
 export interface GetContractTemplatesParams {
   category?: ContractTemplate['category'];
@@ -517,7 +517,7 @@ class ContractService {
   async createContractTemplate(templateData: CreateContractTemplateRequest, file?: File): Promise<ApiResponse<ContractTemplate>> {
     try {
       const formData = new FormData();
-      
+
       // Append template data
       Object.entries(templateData).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -544,7 +544,7 @@ class ContractService {
   async updateContractTemplate(id: string, templateData: UpdateContractTemplateRequest, file?: File): Promise<ApiResponse<ContractTemplate>> {
     try {
       const formData = new FormData();
-      
+
       // Append template data
       Object.entries(templateData).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -665,7 +665,7 @@ class ContractService {
   async createContract(contractData: CreateContractRequest, attachments?: File[]): Promise<ApiResponse<Contract>> {
     try {
       const formData = new FormData();
-      
+
       // Append contract data
       Object.entries(contractData).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -762,31 +762,7 @@ class ContractService {
    */
   async downloadContractPDF(contractId: string): Promise<Blob> {
     try {
-      // Get token from cookies
-      const getTokenFromCookies = () => {
-        if (typeof window === 'undefined') return null;
-        try {
-          const cookies = document.cookie.split(';');
-          const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('admin_token='));
-          return tokenCookie ? tokenCookie.split('=')[1].trim() : null;
-        } catch {
-          return null;
-        }
-      };
-
-      const token = getTokenFromCookies();
-      const response = await fetch(`/api${this.contractsEndpoint}/${contractId}/pdf`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to download PDF');
-      }
-      
-      return await response.blob();
+      return await ApiService.getBlob(`${this.contractsEndpoint}/${contractId}/pdf`);
     } catch (error) {
       console.error('Download contract PDF error:', error);
       throw this.handleError(error);
@@ -821,11 +797,11 @@ class ContractService {
       // This endpoint might not exist in the backend yet, so we'll create a placeholder
       const contractsResponse = await this.getContracts({ limit: 1000 });
       const templatesResponse = await this.getContractTemplates({ limit: 1000 });
-      
+
       if (contractsResponse.success && templatesResponse.success) {
         const contracts = contractsResponse.data || [];
         const templates = templatesResponse.data || [];
-        
+
         const stats: ContractStats = {
           overview: {
             totalContracts: contracts.length,
@@ -837,10 +813,10 @@ class ContractService {
           statusBreakdown: this.calculateStatusBreakdown(contracts),
           templateUsage: this.calculateTemplateUsage(contracts, templates),
         };
-        
+
         return { success: true, data: stats };
       }
-      
+
       throw new Error('Failed to fetch stats data');
     } catch (error) {
       console.error('Get contract stats error:', error);
@@ -855,11 +831,11 @@ class ContractService {
    */
   private calculateStatusBreakdown(contracts: Contract[]): Array<{ _id: string; count: number }> {
     const statusCounts: Record<string, number> = {};
-    
+
     contracts.forEach(contract => {
       statusCounts[contract.status] = (statusCounts[contract.status] || 0) + 1;
     });
-    
+
     return Object.entries(statusCounts).map(([status, count]) => ({
       _id: status,
       count
@@ -871,7 +847,7 @@ class ContractService {
    */
   private calculateTemplateUsage(contracts: Contract[], templates: ContractTemplate[]): Array<{ _id: string; name: string; usageCount: number }> {
     const templateUsage: Record<string, { name: string; count: number }> = {};
-    
+
     // Initialize with all templates
     templates.forEach(template => {
       templateUsage[template.templateId] = {
@@ -879,14 +855,14 @@ class ContractService {
         count: 0
       };
     });
-    
+
     // Count usage from contracts
     contracts.forEach(contract => {
       if (templateUsage[contract.template.templateId]) {
         templateUsage[contract.template.templateId].count++;
       }
     });
-    
+
     return Object.entries(templateUsage).map(([templateId, data]) => ({
       _id: templateId,
       name: data.name,
@@ -920,7 +896,7 @@ class ContractService {
         formData.append('partyIndex', signatureData.partyIndex.toString());
       }
       formData.append('signatureMethod', signatureData.signatureMethod);
-      
+
       // Add signature data
       if (signatureData.signatureImage) {
         if (typeof signatureData.signatureImage === 'string') {
@@ -929,20 +905,20 @@ class ContractService {
           formData.append('signatureImage', signatureData.signatureImage);
         }
       }
-      
+
       // Add metadata
       formData.append('ipAddress', signatureData.metadata.ipAddress);
       formData.append('userAgent', signatureData.metadata.userAgent);
       formData.append('timestamp', signatureData.metadata.timestamp.toISOString());
-      
+
       if (signatureData.metadata.geolocation) {
         formData.append('geolocation', JSON.stringify(signatureData.metadata.geolocation));
       }
-      
+
       if (signatureData.metadata.deviceInfo) {
         formData.append('deviceInfo', JSON.stringify(signatureData.metadata.deviceInfo));
       }
-      
+
       // Add witness information if provided
       if (signatureData.witness) {
         formData.append('witnessName', signatureData.witness.name);
@@ -951,7 +927,7 @@ class ContractService {
           formData.append('witnessPhone', signatureData.witness.phone);
         }
       }
-      
+
       // Add notary information if provided
       if (signatureData.notary) {
         formData.append('notaryName', signatureData.notary.name);
@@ -1055,22 +1031,10 @@ class ContractService {
    */
   async getSignatureCertificate(contractId: string, signatureId: string): Promise<Blob> {
     try {
-      const token = ApiService.getToken();
-      const response = await fetch(`/api${this.contractsEndpoint}/${contractId}/signatures/${signatureId}/certificate`, {
-        method: 'GET',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to download signature certificate');
-      }
-
-      return await response.blob();
+      return await ApiService.getBlob(`${this.contractsEndpoint}/${contractId}/signatures/${signatureId}/certificate`);
     } catch (error) {
       console.error('Download signature certificate error:', error);
-      throw error;
+      throw this.handleError(error);
     }
   }
 
@@ -1079,7 +1043,7 @@ class ContractService {
    */
   private buildQueryString(params: Record<string, any>): string {
     const searchParams = new URLSearchParams();
-    
+
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         if (Array.isArray(value)) {
@@ -1089,7 +1053,7 @@ class ContractService {
         }
       }
     });
-    
+
     const queryString = searchParams.toString();
     return queryString ? `?${queryString}` : '';
   }
@@ -1122,7 +1086,7 @@ class ContractService {
   }): Promise<ApiResponse<ContractSignature[]>> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params?.contractId) queryParams.append('contractId', params.contractId);
       if (params?.status) queryParams.append('status', params.status);
       if (params?.search) queryParams.append('search', params.search);

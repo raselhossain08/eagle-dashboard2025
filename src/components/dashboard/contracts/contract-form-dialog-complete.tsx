@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Plus, X, FileText, Calendar, DollarSign, User, Building } from 'lucide-react';
 import { toast } from 'sonner';
-import { Contract, ContractTemplate, CreateContractRequest, UpdateContractRequest } from '@/services/contracts';
+import type { Contract, ContractTemplate, CreateContractRequest, UpdateContractRequest } from '@/lib/services/contracts/contract.service';
 
 interface ContractFormDialogProps {
   open: boolean;
@@ -126,7 +126,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
           },
           financialTerms: contract.financialTerms
         });
-        
+
         const template = templates.find(t => t.templateId === contract.template.templateId);
         setSelectedTemplate(template || null);
       } else {
@@ -187,11 +187,11 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
   const handleTemplateChange = (templateId: string) => {
     const template = templates.find(t => t.templateId === templateId);
     setSelectedTemplate(template || null);
-    
-    setFormData(prev => ({
+
+    setFormData((prev: CreateContractRequest) => ({
       ...prev,
       templateId,
-      variableValues: template?.content.variables.reduce((acc, variable) => {
+      variableValues: template?.content.variables.reduce((acc: Record<string, any>, variable: any) => {
         acc[variable.name] = variable.defaultValue || '';
         return acc;
       }, {} as Record<string, any>) || {},
@@ -199,7 +199,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
   };
 
   const handleVariableChange = (variableName: string, value: any) => {
-    setFormData(prev => ({
+    setFormData((prev: CreateContractRequest) => ({
       ...prev,
       variableValues: {
         ...prev.variableValues,
@@ -222,7 +222,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
         if (!formData.parties.primary.email?.trim()) errors['primary.email'] = 'Primary party email is required';
         if (!formData.parties.secondary.name.trim()) errors['secondary.name'] = 'Secondary party name is required';
         if (!formData.parties.secondary.email?.trim()) errors['secondary.email'] = 'Secondary party email is required';
-        
+
         // Email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (formData.parties.primary.email && !emailRegex.test(formData.parties.primary.email)) {
@@ -235,7 +235,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
 
       case 3: // Variables
         if (selectedTemplate) {
-          selectedTemplate.content.variables.forEach(variable => {
+          selectedTemplate.content.variables.forEach((variable: any) => {
             if (variable.required && !formData.variableValues[variable.name]) {
               errors[`variable.${variable.name}`] = `${variable.label} is required`;
             }
@@ -283,8 +283,8 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
         terms: {
           ...formData.terms,
           effectiveDate: new Date(formData.terms.effectiveDate).toISOString(),
-          expirationDate: formData.terms.expirationDate 
-            ? new Date(formData.terms.expirationDate).toISOString() 
+          expirationDate: formData.terms.expirationDate
+            ? new Date(formData.terms.expirationDate).toISOString()
             : undefined,
         }
       };
@@ -302,14 +302,14 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
     const inputProps = {
       className: error ? 'border-red-500' : '',
       value: value,
-      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => 
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
         handleVariableChange(variable.name, e.target.value)
     };
 
     switch (variable.type) {
       case 'textarea':
         return <Textarea {...inputProps} placeholder={variable.placeholder || variable.description} rows={3} />;
-      
+
       case 'number':
       case 'currency':
         return (
@@ -320,7 +320,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
             placeholder={variable.placeholder || variable.description}
           />
         );
-      
+
       case 'date':
         return (
           <Input
@@ -329,7 +329,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
             onChange={(e) => handleVariableChange(variable.name, e.target.value)}
           />
         );
-      
+
       case 'boolean':
         return (
           <Select
@@ -345,7 +345,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
             </SelectContent>
           </Select>
         );
-      
+
       case 'select':
         return (
           <Select
@@ -356,7 +356,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
               <SelectValue placeholder="Select an option" />
             </SelectTrigger>
             <SelectContent>
-              {variable.options?.map((option) => (
+              {variable.options?.map((option: string) => (
                 <SelectItem key={option} value={option}>
                   {option}
                 </SelectItem>
@@ -364,7 +364,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
             </SelectContent>
           </Select>
         );
-      
+
       default:
         return <Input {...inputProps} placeholder={variable.placeholder || variable.description} />;
     }
@@ -379,7 +379,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
               <FileText className="h-5 w-5" />
               <h3 className="text-lg font-medium">Basic Information</h3>
             </div>
-            
+
             <div className="grid gap-4">
               <div className="space-y-2">
                 <Label htmlFor="template">
@@ -390,8 +390,8 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                     </Badge>
                   )}
                 </Label>
-                <Select 
-                  value={formData.templateId} 
+                <Select
+                  value={formData.templateId}
                   onValueChange={handleTemplateChange}
                   disabled={!!contract} // Disable in edit mode
                 >
@@ -402,13 +402,13 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                     {templates
                       .filter(t => t.status === 'active' && t.isActive)
                       .map((template) => (
-                      <SelectItem key={template._id} value={template.templateId}>
-                        <div className="flex flex-col">
-                          <span>{template.name} (v{template.versionString})</span>
-                          <span className="text-xs text-muted-foreground">{template.category}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                        <SelectItem key={template._id} value={template.templateId}>
+                          <div className="flex flex-col">
+                            <span>{template.name} (v{template.versionString})</span>
+                            <span className="text-xs text-muted-foreground">{template.category}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 {validationErrors.templateId && (
@@ -421,7 +421,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                 <Input
                   id="title"
                   value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  onChange={(e) => setFormData((prev: CreateContractRequest) => ({ ...prev, title: e.target.value }))}
                   placeholder="Enter contract title"
                   className={validationErrors.title ? 'border-red-500' : ''}
                 />
@@ -461,7 +461,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
               <User className="h-5 w-5" />
               <h3 className="text-lg font-medium">Contracting Parties</h3>
             </div>
-            
+
             {/* Primary Party */}
             <Card>
               <CardHeader>
@@ -474,13 +474,13 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Type *</Label>
-                    <Select 
-                      value={formData.parties.primary.type} 
-                      onValueChange={(value: 'individual' | 'company' | 'organization') => 
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          parties: { 
-                            ...prev.parties, 
+                    <Select
+                      value={formData.parties.primary.type}
+                      onValueChange={(value: 'individual' | 'company' | 'organization') =>
+                        setFormData((prev: CreateContractRequest) => ({
+                          ...prev,
+                          parties: {
+                            ...prev.parties,
                             primary: { ...prev.parties.primary, type: value }
                           }
                         }))
@@ -500,10 +500,10 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                     <Label>Name *</Label>
                     <Input
                       value={formData.parties.primary.name}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        parties: { 
-                          ...prev.parties, 
+                      onChange={(e) => setFormData((prev: CreateContractRequest) => ({
+                        ...prev,
+                        parties: {
+                          ...prev.parties,
                           primary: { ...prev.parties.primary, name: e.target.value }
                         }
                       }))}
@@ -515,17 +515,17 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                     )}
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Email *</Label>
                     <Input
                       type="email"
                       value={formData.parties.primary.email || ''}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        parties: { 
-                          ...prev.parties, 
+                      onChange={(e) => setFormData((prev: CreateContractRequest) => ({
+                        ...prev,
+                        parties: {
+                          ...prev.parties,
                           primary: { ...prev.parties.primary, email: e.target.value }
                         }
                       }))}
@@ -540,10 +540,10 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                     <Label>Phone</Label>
                     <Input
                       value={formData.parties.primary.phone || ''}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        parties: { 
-                          ...prev.parties, 
+                      onChange={(e) => setFormData((prev: CreateContractRequest) => ({
+                        ...prev,
+                        parties: {
+                          ...prev.parties,
                           primary: { ...prev.parties.primary, phone: e.target.value }
                         }
                       }))}
@@ -566,13 +566,13 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Type *</Label>
-                    <Select 
-                      value={formData.parties.secondary.type} 
-                      onValueChange={(value: 'individual' | 'company' | 'organization') => 
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          parties: { 
-                            ...prev.parties, 
+                    <Select
+                      value={formData.parties.secondary.type}
+                      onValueChange={(value: 'individual' | 'company' | 'organization') =>
+                        setFormData((prev: CreateContractRequest) => ({
+                          ...prev,
+                          parties: {
+                            ...prev.parties,
                             secondary: { ...prev.parties.secondary, type: value }
                           }
                         }))
@@ -592,10 +592,10 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                     <Label>Name *</Label>
                     <Input
                       value={formData.parties.secondary.name}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        parties: { 
-                          ...prev.parties, 
+                      onChange={(e) => setFormData((prev: CreateContractRequest) => ({
+                        ...prev,
+                        parties: {
+                          ...prev.parties,
                           secondary: { ...prev.parties.secondary, name: e.target.value }
                         }
                       }))}
@@ -607,17 +607,17 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                     )}
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Email *</Label>
                     <Input
                       type="email"
                       value={formData.parties.secondary.email || ''}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        parties: { 
-                          ...prev.parties, 
+                      onChange={(e) => setFormData((prev: CreateContractRequest) => ({
+                        ...prev,
+                        parties: {
+                          ...prev.parties,
                           secondary: { ...prev.parties.secondary, email: e.target.value }
                         }
                       }))}
@@ -632,10 +632,10 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                     <Label>Phone</Label>
                     <Input
                       value={formData.parties.secondary.phone || ''}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        parties: { 
-                          ...prev.parties, 
+                      onChange={(e) => setFormData((prev: CreateContractRequest) => ({
+                        ...prev,
+                        parties: {
+                          ...prev.parties,
                           secondary: { ...prev.parties.secondary, phone: e.target.value }
                         }
                       }))}
@@ -655,7 +655,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
             {selectedTemplate && selectedTemplate.content.variables.length > 0 ? (
               <ScrollArea className="h-96">
                 <div className="space-y-4 pr-4">
-                  {selectedTemplate.content.variables.map((variable) => {
+                  {selectedTemplate.content.variables.map((variable: any) => {
                     const error = validationErrors[`variable.${variable.name}`];
                     return (
                       <div key={variable.name} className="space-y-2">
@@ -695,7 +695,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
               <Calendar className="h-5 w-5" />
               <h3 className="text-lg font-medium">Contract Terms & Financial Details</h3>
             </div>
-            
+
             <div className="grid gap-6">
               {/* Date Terms */}
               <Card>
@@ -709,8 +709,8 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                       <Input
                         type="date"
                         value={formData.terms.effectiveDate}
-                        onChange={(e) => setFormData(prev => ({ 
-                          ...prev, 
+                        onChange={(e) => setFormData((prev: CreateContractRequest) => ({
+                          ...prev,
                           terms: { ...prev.terms, effectiveDate: e.target.value }
                         }))}
                         className={validationErrors.effectiveDate ? 'border-red-500' : ''}
@@ -724,8 +724,8 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                       <Input
                         type="date"
                         value={formData.terms.expirationDate || ''}
-                        onChange={(e) => setFormData(prev => ({ 
-                          ...prev, 
+                        onChange={(e) => setFormData((prev: CreateContractRequest) => ({
+                          ...prev,
                           terms: { ...prev.terms, expirationDate: e.target.value || undefined }
                         }))}
                       />
@@ -749,8 +749,8 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                       <Input
                         type="number"
                         value={formData.financialTerms?.contractValue?.amount || 0}
-                        onChange={(e) => setFormData(prev => ({ 
-                          ...prev, 
+                        onChange={(e) => setFormData((prev: CreateContractRequest) => ({
+                          ...prev,
                           financialTerms: {
                             ...prev.financialTerms,
                             contractValue: {
@@ -767,8 +767,8 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                       <Label>Currency</Label>
                       <Select
                         value={formData.financialTerms?.contractValue?.currency || 'USD'}
-                        onValueChange={(value) => setFormData(prev => ({ 
-                          ...prev, 
+                        onValueChange={(value) => setFormData((prev: CreateContractRequest) => ({
+                          ...prev,
                           financialTerms: {
                             ...prev.financialTerms,
                             contractValue: {
@@ -792,13 +792,13 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
                       </Select>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label>Payment Schedule</Label>
                     <Select
                       value={formData.financialTerms?.paymentTerms?.schedule || 'monthly'}
-                      onValueChange={(value) => setFormData(prev => ({ 
-                        ...prev, 
+                      onValueChange={(value) => setFormData((prev: CreateContractRequest) => ({
+                        ...prev,
                         financialTerms: {
                           ...prev.financialTerms,
                           paymentTerms: {
@@ -842,7 +842,7 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
             {contract ? 'Edit Contract' : 'Create New Contract'}
           </DialogTitle>
           <DialogDescription>
-            {contract 
+            {contract
               ? 'Update contract details and settings'
               : 'Create a new contract from a template'
             }
@@ -852,18 +852,17 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
         {/* Step Indicator */}
         <div className="flex items-center justify-between py-4 border-b">
           {stepTitles.map((title, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className={`flex items-center ${index < stepTitles.length - 1 ? 'flex-1' : ''}`}
             >
-              <div 
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  currentStep > index + 1 
-                    ? 'bg-green-500 text-white' 
-                    : currentStep === index + 1 
-                    ? 'bg-blue-500 text-white' 
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${currentStep > index + 1
+                  ? 'bg-green-500 text-white'
+                  : currentStep === index + 1
+                    ? 'bg-blue-500 text-white'
                     : 'bg-gray-200 text-gray-600'
-                }`}
+                  }`}
               >
                 {currentStep > index + 1 ? '✓' : index + 1}
               </div>
@@ -885,19 +884,19 @@ const ContractFormDialog: React.FC<ContractFormDialogProps> = ({
         {/* Navigation */}
         <DialogFooter className="border-t pt-4">
           <div className="flex items-center justify-between w-full">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleBack}
               disabled={currentStep === 1}
             >
               Back
             </Button>
-            
+
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              
+
               {currentStep < 4 ? (
                 <Button onClick={handleNext}>
                   Next

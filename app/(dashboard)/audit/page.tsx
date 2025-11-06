@@ -9,14 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  AlertCircle, 
-  Shield, 
-  Activity, 
-  Users, 
-  Download, 
-  Search, 
-  Filter, 
+import {
+  AlertCircle,
+  Shield,
+  Activity,
+  Users,
+  Download,
+  Search,
+  Filter,
   RefreshCw,
   Eye,
   Calendar,
@@ -35,8 +35,36 @@ import { AuditLog } from '@/lib/types';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+// Helper function to safely format dates
+const safeFormatDate = (timestamp: any, formatStr: string): string => {
+  if (!timestamp || timestamp === null || timestamp === undefined) return 'N/A';
+
+  try {
+    // Handle various timestamp formats
+    let date: Date;
+
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else {
+      return 'Invalid date';
+    }
+
+    // Check if the date is valid
+    if (isNaN(date.getTime()) || !isFinite(date.getTime())) {
+      return 'Invalid date';
+    }
+
+    return format(date, formatStr);
+  } catch (error) {
+    console.error('Date formatting error:', error, 'for timestamp:', timestamp);
+    return 'Invalid date';
+  }
+};
+
 // Define the types that the component needs
-interface AuditLogEntry extends AuditLog {}
+interface AuditLogEntry extends AuditLog { }
 
 interface AuditLogFilters {
   page: number;
@@ -73,19 +101,19 @@ interface AuditLogDashboardProps {
 
 const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '24h' }) => {
   // Service instance (use the imported auditService directly)
-  
+
   // State management
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState(initialPeriod);
-  
+
   // Dashboard data
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [timeline, setTimeline] = useState<TimelineData | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [securityEvents, setSecurityEvents] = useState<AuditLogEntry[]>([]);
   const [failedOperations, setFailedOperations] = useState<AuditLogEntry[]>([]);
-  
+
   // Filters and pagination
   const [filters, setFilters] = useState<AuditLogFilters>({
     page: 1,
@@ -111,7 +139,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const [statisticsRes, logsRes, securityRes] = await Promise.all([
         auditService.getAuditStatistics(),
@@ -168,7 +196,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
       });
 
       setTimeline({ hourly: hourlyData, daily: dailyData });
-      
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
       console.error('Dashboard load error:', err);
@@ -213,7 +241,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
       // Get all audit logs for export
       const response = await auditService.getAuditLogs({ ...filters, limit: 10000 });
       const data = response.items || [];
-      
+
       if (format === 'json') {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -236,7 +264,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
             log.ipAddress || ''
           ].join(','))
         ].join('\n');
-        
+
         const blob = new Blob([csvData], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -285,7 +313,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
   const getActionIcon = (actionType: string) => {
     const icons = {
       CREATE: '➕',
-      UPDATE: '✏️', 
+      UPDATE: '✏️',
       DELETE: '🗑️',
       READ: '👀',
       LOGIN: '🔐',
@@ -421,7 +449,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {overview.successfulOperations > 0 
+                {overview.successfulOperations > 0
                   ? Math.round((overview.successfulOperations / overview.totalEvents) * 100)
                   : 0}%
               </div>
@@ -453,13 +481,13 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={timeline.hourly}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="timestamp" 
+                      <XAxis
+                        dataKey="timestamp"
                         tickFormatter={(value) => {
                           if (typeof value === 'object' && value.hour !== undefined) {
                             return `${value.hour}:00`;
                           }
-                          return format(new Date(value), 'HH:mm');
+                          return safeFormatDate(value, 'HH:mm');
                         }}
                       />
                       <YAxis />
@@ -500,8 +528,8 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
             <CardContent>
               {auditLogs.length > 0 ? (
                 <div className="space-y-2">
-                  {auditLogs.slice(0, 5).map((log) => (
-                    <div key={log.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  {auditLogs.slice(0, 5).map((log, index) => (
+                    <div key={log.id || `recent-log-${index}`} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center space-x-3">
                         <span className="text-lg">{getActionIcon(log.action)}</span>
                         <div>
@@ -513,7 +541,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(log.timestamp), 'HH:mm:ss')}
+                          {safeFormatDate(log.timestamp, 'HH:mm:ss')}
                         </p>
                       </div>
                     </div>
@@ -549,27 +577,27 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
                     />
                   </div>
                 </div>
-                <Select value={filters.severity || ''} onValueChange={(value) => updateFilter('severity', value || undefined)}>
+                <Select value={filters.severity || 'all'} onValueChange={(value) => updateFilter('severity', value === 'all' ? undefined : value)}>
                   <SelectTrigger className="w-32">
                     <SelectValue placeholder="Severity" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Severity</SelectItem>
+                    <SelectItem value="all">All Severity</SelectItem>
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="critical">Critical</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select 
-                  value={filters.success === undefined ? '' : filters.success.toString()} 
-                  onValueChange={(value) => updateFilter('success', value === '' ? undefined : value === 'true')}
+                <Select
+                  value={filters.success === undefined ? 'all' : filters.success.toString()}
+                  onValueChange={(value) => updateFilter('success', value === 'all' ? undefined : value === 'true')}
                 >
                   <SelectTrigger className="w-32">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Status</SelectItem>
+                    <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="true">Success</SelectItem>
                     <SelectItem value="false">Failed</SelectItem>
                   </SelectContent>
@@ -609,10 +637,10 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {auditLogs.map((log) => (
-                      <TableRow key={log.id}>
+                    {auditLogs.map((log, index) => (
+                      <TableRow key={log.id || `audit-log-${index}`}>
                         <TableCell className="text-sm">
-                          {format(log.timestamp, 'yyyy-MM-dd HH:mm:ss')}
+                          {safeFormatDate(log.timestamp, 'yyyy-MM-dd HH:mm:ss')}
                         </TableCell>
                         <TableCell className="text-sm">
                           {log.user?.firstName || log.user?.email || 'System'}
@@ -644,7 +672,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
                   </TableBody>
                 </Table>
               </ScrollArea>
-              
+
               {/* Pagination */}
               <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
@@ -689,8 +717,8 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
                 <ScrollArea className="h-64">
                   {securityEvents.length > 0 ? (
                     <div className="space-y-2">
-                      {securityEvents.map((event) => (
-                        <div key={event.id} className="flex items-center justify-between p-2 border rounded">
+                      {securityEvents.map((event, index) => (
+                        <div key={event.id || `security-event-${index}`} className="flex items-center justify-between p-2 border rounded">
                           <div className="flex items-center space-x-2">
                             <AlertTriangle className="h-4 w-4 text-orange-500" />
                             <div>
@@ -728,8 +756,8 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
                 <ScrollArea className="h-64">
                   {failedOperations.length > 0 ? (
                     <div className="space-y-2">
-                      {failedOperations.map((operation) => (
-                        <div key={operation.id} className="flex items-center justify-between p-2 border rounded">
+                      {failedOperations.map((operation, index) => (
+                        <div key={operation.id || `failed-op-${index}`} className="flex items-center justify-between p-2 border rounded">
                           <div className="flex items-center space-x-2">
                             <XCircle className="h-4 w-4 text-red-500" />
                             <div>
@@ -740,7 +768,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
                             </div>
                           </div>
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(operation.timestamp), 'HH:mm')}
+                            {safeFormatDate(operation.timestamp, 'HH:mm')}
                           </span>
                         </div>
                       ))}
@@ -805,7 +833,7 @@ const AuditLogDashboard: React.FC<AuditLogDashboardProps> = ({ initialPeriod = '
                   {realTimeEvents.map((event, index) => (
                     <div key={index} className="text-xs p-1 border-l-2 border-blue-500 pl-2">
                       <span className="text-muted-foreground">
-                        {format(new Date(event.timestamp), 'HH:mm:ss')}
+                        {safeFormatDate(event.timestamp, 'HH:mm:ss')}
                       </span>
                       <span className="ml-2">{event.message || JSON.stringify(event)}</span>
                     </div>

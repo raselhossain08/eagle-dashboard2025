@@ -11,30 +11,30 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Pen, 
-  FileText, 
-  Shield, 
-  Clock, 
-  MapPin, 
-  Monitor, 
-  User, 
-  Mail, 
-  Phone, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  Pen,
+  FileText,
+  Shield,
+  Clock,
+  MapPin,
+  Monitor,
+  User,
+  Mail,
+  Phone,
+  AlertCircle,
+  CheckCircle,
   Eye,
   Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SignaturePad, { SignaturePadRef } from './signature-pad';
-import { 
-  Contract, 
-  SignatureSubmission, 
-  SignatureMetadata, 
-  SignatureWitness, 
-  SignatureNotary 
-} from '@/services/contracts';
+import type {
+  Contract,
+  SignatureSubmission,
+  SignatureMetadata,
+  SignatureWitness,
+  SignatureNotary
+} from '@/lib/services/contracts/contract.service';
 
 interface SignatureWorkflowDialogProps {
   open: boolean;
@@ -63,7 +63,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
   const [userLocation, setUserLocation] = useState<GeolocationPosition | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  
+
   // Witness information
   const [requiresWitness, setRequiresWitness] = useState(false);
   const [witnessData, setWitnessData] = useState<SignatureWitness>({
@@ -71,14 +71,14 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
     email: '',
     phone: '',
   });
-  
+
   // Notary information
   const [requiresNotary, setRequiresNotary] = useState(false);
   const [notaryData, setNotaryData] = useState<SignatureNotary>({
     name: '',
     commission: '',
   });
-  
+
   // Legal acknowledgment
   const [legalAcknowledged, setLegalAcknowledged] = useState(false);
   const [termsAcknowledged, setTermsAcknowledged] = useState(false);
@@ -86,7 +86,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
   // Get current party information
   const getCurrentParty = () => {
     if (!contract) return null;
-    
+
     switch (partyType) {
       case 'primary':
         return contract.parties.primary;
@@ -291,7 +291,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
                         <Badge variant="secondary">{currentParty.type}</Badge>
                       </div>
                     </div>
-                    
+
                     {currentParty.email && (
                       <div>
                         <Label>Email Address</Label>
@@ -301,7 +301,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
                         </div>
                       </div>
                     )}
-                    
+
                     {currentParty.phone && (
                       <div>
                         <Label>Phone Number</Label>
@@ -399,7 +399,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
               onSignatureChange={handleSignatureChange}
               className={validationErrors.signature ? 'border-red-500' : ''}
             />
-            
+
             {validationErrors.signature && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -431,7 +431,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
                         <Label>Witness Name *</Label>
                         <Input
                           value={witnessData.name}
-                          onChange={(e) => setWitnessData(prev => ({ ...prev, name: e.target.value }))}
+                          onChange={(e) => setWitnessData((prev: SignatureWitness) => ({ ...prev, name: e.target.value }))}
                           className={validationErrors.witnessName ? 'border-red-500' : ''}
                         />
                       </div>
@@ -440,7 +440,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
                         <Input
                           type="email"
                           value={witnessData.email}
-                          onChange={(e) => setWitnessData(prev => ({ ...prev, email: e.target.value }))}
+                          onChange={(e) => setWitnessData((prev: SignatureWitness) => ({ ...prev, email: e.target.value }))}
                           className={validationErrors.witnessEmail ? 'border-red-500' : ''}
                         />
                       </div>
@@ -449,7 +449,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
                       <Label>Witness Phone</Label>
                       <Input
                         value={witnessData.phone}
-                        onChange={(e) => setWitnessData(prev => ({ ...prev, phone: e.target.value }))}
+                        onChange={(e) => setWitnessData((prev: SignatureWitness) => ({ ...prev, phone: e.target.value }))}
                       />
                     </div>
                   </div>
@@ -481,7 +481,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
                         <Label>Notary Name *</Label>
                         <Input
                           value={notaryData.name}
-                          onChange={(e) => setNotaryData(prev => ({ ...prev, name: e.target.value }))}
+                          onChange={(e) => setNotaryData((prev: SignatureNotary) => ({ ...prev, name: e.target.value }))}
                           className={validationErrors.notaryName ? 'border-red-500' : ''}
                         />
                       </div>
@@ -489,7 +489,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
                         <Label>Commission Number *</Label>
                         <Input
                           value={notaryData.commission}
-                          onChange={(e) => setNotaryData(prev => ({ ...prev, commission: e.target.value }))}
+                          onChange={(e) => setNotaryData((prev: SignatureNotary) => ({ ...prev, commission: e.target.value }))}
                           className={validationErrors.notaryCommission ? 'border-red-500' : ''}
                         />
                       </div>
@@ -527,7 +527,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
                       I acknowledge and agree that my electronic signature has the same legal force and effect as a handwritten signature. I understand that this document is legally binding and that I have the right to receive a paper copy of this contract.
                     </Label>
                   </div>
-                  
+
                   <div className="flex items-start space-x-2">
                     <input
                       type="checkbox"
@@ -576,7 +576,7 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
                     <div>{requiresNotary ? 'Yes' : 'No'}</div>
                   </div>
                 </div>
-                
+
                 {isSignatureValid && (
                   <div className="flex items-center gap-2 text-green-600">
                     <CheckCircle className="h-4 w-4" />
@@ -611,18 +611,17 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
         {/* Step Indicator */}
         <div className="flex items-center justify-between py-4 border-b">
           {stepTitles.map((title, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className={`flex items-center ${index < stepTitles.length - 1 ? 'flex-1' : ''}`}
             >
-              <div 
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  currentStep > index + 1 
-                    ? 'bg-green-500 text-white' 
-                    : currentStep === index + 1 
-                    ? 'bg-blue-500 text-white' 
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${currentStep > index + 1
+                  ? 'bg-green-500 text-white'
+                  : currentStep === index + 1
+                    ? 'bg-blue-500 text-white'
                     : 'bg-gray-200 text-gray-600'
-                }`}
+                  }`}
               >
                 {currentStep > index + 1 ? '✓' : index + 1}
               </div>
@@ -644,26 +643,26 @@ const SignatureWorkflowDialog: React.FC<SignatureWorkflowDialogProps> = ({
         {/* Navigation */}
         <DialogFooter className="border-t pt-4">
           <div className="flex items-center justify-between w-full">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleBack}
               disabled={currentStep === 1}
             >
               Back
             </Button>
-            
+
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              
+
               {currentStep < 3 ? (
                 <Button onClick={handleNext}>
                   Next
                 </Button>
               ) : (
-                <Button 
-                  onClick={handleSubmit} 
+                <Button
+                  onClick={handleSubmit}
                   disabled={loading || !isSignatureValid || !legalAcknowledged || !termsAcknowledged}
                 >
                   {loading ? 'Submitting...' : 'Submit Signature'}
