@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   LineChart,
   Line,
@@ -20,8 +26,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
-} from 'recharts';
+  ResponsiveContainer,
+} from "recharts";
 import {
   Activity,
   Users,
@@ -37,19 +43,23 @@ import {
   Calendar,
   Download,
   RefreshCw,
-  Filter
-} from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
-import analyticsService from '@/lib/services/analytics.service';
+  Filter,
+} from "lucide-react";
+import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import analyticsService from "@/lib/services/analytics.service";
 
 // Color schemes
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
-const DEVICE_COLORS = { desktop: '#0088FE', mobile: '#00C49F', tablet: '#FFBB28' };
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
+const DEVICE_COLORS = {
+  desktop: "#0088FE",
+  mobile: "#00C49F",
+  tablet: "#FFBB28",
+};
 
 // Utility function to format numbers
 const formatNumber = (num: number): string => {
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
   return num.toString();
 };
 
@@ -69,7 +79,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
   previousValue,
   change,
   icon,
-  format = formatNumber
+  format = formatNumber,
 }) => {
   const isPositive = change >= 0;
 
@@ -87,7 +97,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
           ) : (
             <TrendingDown className="mr-1 h-3 w-3 text-red-500" />
           )}
-          <span className={isPositive ? 'text-green-500' : 'text-red-500'}>
+          <span className={isPositive ? "text-green-500" : "text-red-500"}>
             {Math.abs(change).toFixed(1)}%
           </span>
           <span className="ml-1">from previous period</span>
@@ -103,7 +113,10 @@ interface RealtimeEventsProps {
   isLoading: boolean;
 }
 
-const RealtimeEvents: React.FC<RealtimeEventsProps> = ({ realtimeData, isLoading }) => {
+const RealtimeEvents: React.FC<RealtimeEventsProps> = ({
+  realtimeData,
+  isLoading,
+}) => {
   if (isLoading) {
     return (
       <Card>
@@ -147,18 +160,27 @@ const RealtimeEvents: React.FC<RealtimeEventsProps> = ({ realtimeData, isLoading
             <div className="max-h-48 overflow-y-auto space-y-2">
               {realtimeData?.recentEvents?.length > 0 ? (
                 realtimeData.recentEvents.map((event: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-2 rounded bg-muted/50">
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 rounded bg-muted/50"
+                  >
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">{event.eventName}</span>
-                      <span className="text-xs text-muted-foreground capitalize">{event.eventType}</span>
+                      <span className="text-sm font-medium">
+                        {event.eventName}
+                      </span>
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {event.eventType}
+                      </span>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(event.timestamp), 'HH:mm:ss')}
+                      {format(new Date(event.timestamp), "HH:mm:ss")}
                     </span>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">No recent events</p>
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No recent events
+                </p>
               )}
             </div>
           </div>
@@ -170,7 +192,7 @@ const RealtimeEvents: React.FC<RealtimeEventsProps> = ({ realtimeData, isLoading
 
 // Main Analytics Dashboard Component
 export default function AnalyticsDashboard() {
-  const [selectedPeriod, setSelectedPeriod] = useState('7d');
+  const [selectedPeriod, setSelectedPeriod] = useState("7d");
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [timelineData, setTimelineData] = useState<any[]>([]);
@@ -183,16 +205,16 @@ export default function AnalyticsDashboard() {
     let startDate = new Date();
 
     switch (selectedPeriod) {
-      case '1d':
+      case "1d":
         startDate = subDays(endDate, 1);
         break;
-      case '7d':
+      case "7d":
         startDate = subDays(endDate, 7);
         break;
-      case '30d':
+      case "30d":
         startDate = subDays(endDate, 30);
         break;
-      case '90d':
+      case "90d":
         startDate = subDays(endDate, 90);
         break;
       default:
@@ -201,7 +223,7 @@ export default function AnalyticsDashboard() {
 
     return {
       startDate: startDate.toISOString(),
-      endDate: endDate.toISOString()
+      endDate: endDate.toISOString(),
     };
   };
 
@@ -214,7 +236,10 @@ export default function AnalyticsDashboard() {
       const { startDate, endDate } = getDateRange();
 
       // Fetch overview data
-      const overviewData = await analyticsService.getOverviewData(startDate, endDate);
+      const overviewData = await analyticsService.getOverviewData(
+        startDate,
+        endDate
+      );
 
       // Transform API response to match our component structure
       const transformedData = {
@@ -222,48 +247,50 @@ export default function AnalyticsDashboard() {
           totalEvents: {
             current: overviewData?.stats?.totalPageViews || 0,
             previous: 0,
-            change: 0
+            change: 0,
           },
           uniqueUsers: {
             current: overviewData?.stats?.uniqueVisitors || 0,
             previous: 0,
-            change: 0
+            change: 0,
           },
           pageViews: {
             current: overviewData?.stats?.totalPageViews || 0,
             previous: 0,
-            change: 0
+            change: 0,
           },
           conversions: {
             current: overviewData?.conversion?.funnel?.[3]?.users || 0,
             previous: 0,
-            change: 0
-          }
+            change: 0,
+          },
         },
-        topEvents: (overviewData?.recentEvents?.data || []).map((event: any) => ({
-          eventType: event.type || 'unknown',
-          eventName: event.action || 'Unknown',
-          count: 1,
-          uniqueUsers: 1,
-          timestamp: event.timestamp
-        })),
+        topEvents: (overviewData?.recentEvents?.data || []).map(
+          (event: any) => ({
+            eventType: event.type || "unknown",
+            eventName: event.action || "Unknown",
+            count: 1,
+            uniqueUsers: 1,
+            timestamp: event.timestamp,
+          })
+        ),
         topPages: (overviewData?.topPages?.data || []).map((page: any) => ({
-          page: page.page?.title || page.page?.path || 'Unknown',
-          views: page.views || 0,
-          uniqueViews: page.uniqueViews || 0
+          page: page?.page?.title || page?.page?.path || "Unknown",
+          views: page?.views || 0,
+          uniqueViews: page?.uniqueViews || 0,
         })),
         conversion: {
-          funnel: overviewData?.conversion?.funnel || []
+          funnel: overviewData?.conversion?.funnel || [],
         },
         breakdowns: {
           devices: (overviewData?.devices?.data || []).map((device: any) => ({
-            deviceType: device.name || 'unknown',
+            deviceType: device.name || "unknown",
             count: device.value || 0,
-            uniqueUsers: device.value || 0
+            uniqueUsers: device.value || 0,
           })),
           geographic: [],
-          trafficSources: overviewData?.trafficSources?.data || []
-        }
+          trafficSources: overviewData?.trafficSources?.data || [],
+        },
       };
 
       setData(transformedData);
@@ -272,16 +299,20 @@ export default function AnalyticsDashboard() {
       if (overviewData?.trafficSources?.data) {
         const timeline = overviewData.trafficSources.data.map((item: any) => ({
           date: item.month || new Date().toISOString(),
-          pageViews: (item.organic + item.paid + item.direct + item.social + item.referral) || 0,
+          pageViews:
+            item.organic +
+              item.paid +
+              item.direct +
+              item.social +
+              item.referral || 0,
           uniqueUsers: 0,
-          conversions: 0
+          conversions: 0,
         }));
         setTimelineData(timeline);
       }
-
     } catch (err: any) {
-      console.error('Error fetching analytics data:', err);
-      setError(err.message || 'Failed to load analytics data');
+      console.error("Error fetching analytics data:", err);
+      setError(err.message || "Failed to load analytics data");
     } finally {
       setIsLoading(false);
     }
@@ -296,13 +327,13 @@ export default function AnalyticsDashboard() {
       const transformedRealtime = {
         activeUsers: realtime?.current?.activeUsers || 0,
         recentEvents: (realtime?.topPages || []).map((page: any) => ({
-          eventType: 'page_view',
-          eventName: page.page || 'Unknown Page',
+          eventType: "page_view",
+          eventName: page?.page || "Unknown Page",
           timestamp: new Date().toISOString(),
-          userId: null
+          userId: null,
         })),
         pageViewsTimeline: [],
-        locations: realtime?.locations || []
+        locations: realtime?.locations || [],
       };
 
       setRealtimeData(transformedRealtime);
@@ -316,13 +347,13 @@ export default function AnalyticsDashboard() {
             geographic: realtime.locations.map((loc: any) => ({
               country: loc.country,
               count: loc.users,
-              uniqueUsers: loc.users
-            }))
-          }
+              uniqueUsers: loc.users,
+            })),
+          },
         });
       }
     } catch (err) {
-      console.error('Error fetching realtime data:', err);
+      console.error("Error fetching realtime data:", err);
     }
   };
 
@@ -347,10 +378,13 @@ export default function AnalyticsDashboard() {
   const handleExport = async () => {
     try {
       const { startDate, endDate } = getDateRange();
-      await analyticsService.exportAnalyticsData(startDate, endDate, 'json', ['sessions', 'events']);
+      await analyticsService.exportAnalyticsData(startDate, endDate, "json", [
+        "sessions",
+        "events",
+      ]);
       // Handle the export download
     } catch (err) {
-      console.error('Error exporting data:', err);
+      console.error("Error exporting data:", err);
     }
   };
 
@@ -359,7 +393,9 @@ export default function AnalyticsDashboard() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analytics Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Analytics Dashboard
+          </h1>
           <p className="text-muted-foreground">
             Comprehensive insights into user behavior and platform performance
           </p>
@@ -367,7 +403,9 @@ export default function AnalyticsDashboard() {
 
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={refreshData} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
           <Button variant="outline" onClick={handleExport}>
@@ -397,7 +435,11 @@ export default function AnalyticsDashboard() {
       {data && (
         <>
           {/* Period Selector */}
-          <Tabs value={selectedPeriod} onValueChange={setSelectedPeriod} className="w-full">
+          <Tabs
+            value={selectedPeriod}
+            onValueChange={setSelectedPeriod}
+            className="w-full"
+          >
             <TabsList>
               <TabsTrigger value="1d">Last 24 Hours</TabsTrigger>
               <TabsTrigger value="7d">Last 7 Days</TabsTrigger>
@@ -434,7 +476,9 @@ export default function AnalyticsDashboard() {
                   value={data?.metrics?.conversions?.current || 0}
                   previousValue={data?.metrics?.conversions?.previous || 0}
                   change={data?.metrics?.conversions?.change || 0}
-                  icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
+                  icon={
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  }
                 />
               </div>
 
@@ -443,7 +487,9 @@ export default function AnalyticsDashboard() {
                 <Card className="col-span-2">
                   <CardHeader>
                     <CardTitle>Traffic Trends</CardTitle>
-                    <CardDescription>Page views and user activity over time</CardDescription>
+                    <CardDescription>
+                      Page views and user activity over time
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     {timelineData?.length > 0 ? (
@@ -455,7 +501,9 @@ export default function AnalyticsDashboard() {
                             tickFormatter={(value) => {
                               try {
                                 const date = new Date(value);
-                                return isNaN(date.getTime()) ? value : format(date, 'MMM d');
+                                return isNaN(date.getTime())
+                                  ? value
+                                  : format(date, "MMM d");
                               } catch {
                                 return value;
                               }
@@ -466,28 +514,50 @@ export default function AnalyticsDashboard() {
                             labelFormatter={(value) => {
                               try {
                                 const date = new Date(value);
-                                return isNaN(date.getTime()) ? value : format(date, 'MMM d, yyyy');
+                                return isNaN(date.getTime())
+                                  ? value
+                                  : format(date, "MMM d, yyyy");
                               } catch {
                                 return value;
                               }
                             }}
                           />
                           <Legend />
-                          <Line type="monotone" dataKey="pageViews" stroke="#0088FE" name="Page Views" />
-                          <Line type="monotone" dataKey="uniqueUsers" stroke="#00C49F" name="Unique Users" />
-                          <Line type="monotone" dataKey="conversions" stroke="#FFBB28" name="Conversions" />
+                          <Line
+                            type="monotone"
+                            dataKey="pageViews"
+                            stroke="#0088FE"
+                            name="Page Views"
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="uniqueUsers"
+                            stroke="#00C49F"
+                            name="Unique Users"
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="conversions"
+                            stroke="#FFBB28"
+                            name="Conversions"
+                          />
                         </LineChart>
                       </ResponsiveContainer>
                     ) : (
                       <div className="flex items-center justify-center h-[300px]">
-                        <p className="text-muted-foreground">No timeline data available</p>
+                        <p className="text-muted-foreground">
+                          No timeline data available
+                        </p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
                 {/* Real-time Activity */}
-                <RealtimeEvents realtimeData={realtimeData} isLoading={isLoading} />
+                <RealtimeEvents
+                  realtimeData={realtimeData}
+                  isLoading={isLoading}
+                />
               </div>
 
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -508,21 +578,34 @@ export default function AnalyticsDashboard() {
                             cx="50%"
                             cy="50%"
                             labelLine={false}
-                            label={({ deviceType, count }: any) => `${deviceType}: ${formatNumber(count)}`}
+                            label={({ deviceType, count }: any) =>
+                              `${deviceType}: ${formatNumber(count)}`
+                            }
                             outerRadius={80}
                             fill="#8884d8"
                             dataKey="count"
                           >
-                            {data.breakdowns.devices.map((entry: any, index: number) => (
-                              <Cell key={`cell-${index}`} fill={DEVICE_COLORS[entry.deviceType as keyof typeof DEVICE_COLORS] || COLORS[index]} />
-                            ))}
+                            {data.breakdowns.devices.map(
+                              (entry: any, index: number) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={
+                                    DEVICE_COLORS[
+                                      entry.deviceType as keyof typeof DEVICE_COLORS
+                                    ] || COLORS[index]
+                                  }
+                                />
+                              )
+                            )}
                           </Pie>
                           <Tooltip />
                         </PieChart>
                       </ResponsiveContainer>
                     ) : (
                       <div className="flex items-center justify-center h-[200px]">
-                        <p className="text-sm text-muted-foreground">No device data</p>
+                        <p className="text-sm text-muted-foreground">
+                          No device data
+                        </p>
                       </div>
                     )}
                   </CardContent>
@@ -539,20 +622,35 @@ export default function AnalyticsDashboard() {
                   <CardContent>
                     <div className="space-y-3">
                       {data?.topEvents?.length > 0 ? (
-                        data.topEvents.slice(0, 5).map((event: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium">{event.eventName}</span>
-                              <span className="text-xs text-muted-foreground capitalize">{event.eventType}</span>
+                        data.topEvents
+                          .slice(0, 5)
+                          .map((event: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {event.eventName}
+                                </span>
+                                <span className="text-xs text-muted-foreground capitalize">
+                                  {event.eventType}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-medium">
+                                  {formatNumber(event.count)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatNumber(event.uniqueUsers)} users
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <div className="text-sm font-medium">{formatNumber(event.count)}</div>
-                              <div className="text-xs text-muted-foreground">{formatNumber(event.uniqueUsers)} users</div>
-                            </div>
-                          </div>
-                        ))
+                          ))
                       ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">No event data</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No event data
+                        </p>
                       )}
                     </div>
                   </CardContent>
@@ -569,19 +667,32 @@ export default function AnalyticsDashboard() {
                   <CardContent>
                     <div className="space-y-3">
                       {data?.topPages?.length > 0 ? (
-                        data.topPages.slice(0, 5).map((page: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium">{page.page}</span>
+                        data.topPages
+                          .slice(0, 5)
+                          .map((page: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {page?.page}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-medium">
+                                  {formatNumber(page.views)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatNumber(page.uniqueViews)} unique
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <div className="text-sm font-medium">{formatNumber(page.views)}</div>
-                              <div className="text-xs text-muted-foreground">{formatNumber(page.uniqueViews)} unique</div>
-                            </div>
-                          </div>
-                        ))
+                          ))
                       ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">No page data</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No page data
+                        </p>
                       )}
                     </div>
                   </CardContent>
@@ -600,17 +711,28 @@ export default function AnalyticsDashboard() {
                   <CardContent>
                     <div className="space-y-3">
                       {data?.breakdowns?.geographic?.length > 0 ? (
-                        data.breakdowns.geographic.slice(0, 5).map((geo: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <span className="text-sm">{geo.country}</span>
-                            <div className="text-right">
-                              <div className="text-sm font-medium">{formatNumber(geo.count)}</div>
-                              <div className="text-xs text-muted-foreground">{formatNumber(geo.uniqueUsers)} users</div>
+                        data.breakdowns.geographic
+                          .slice(0, 5)
+                          .map((geo: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between"
+                            >
+                              <span className="text-sm">{geo.country}</span>
+                              <div className="text-right">
+                                <div className="text-sm font-medium">
+                                  {formatNumber(geo.count)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatNumber(geo.uniqueUsers)} users
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          ))
                       ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">No geographic data</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No geographic data
+                        </p>
                       )}
                     </div>
                   </CardContent>
@@ -627,19 +749,32 @@ export default function AnalyticsDashboard() {
                   <CardContent>
                     <div className="space-y-3">
                       {data?.conversion?.funnel?.length > 0 ? (
-                        data.conversion.funnel.map((step: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between p-3 rounded bg-muted/50">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium">{step.step}</span>
-                              <span className="text-xs text-muted-foreground">{step.conversionRate.toFixed(1)}% conversion</span>
+                        data.conversion.funnel.map(
+                          (step: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-3 rounded bg-muted/50"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {step.step}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {step.conversionRate.toFixed(1)}% conversion
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-medium">
+                                  {formatNumber(step.users)} users
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <div className="text-sm font-medium">{formatNumber(step.users)} users</div>
-                            </div>
-                          </div>
-                        ))
+                          )
+                        )
                       ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">No conversion data</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No conversion data
+                        </p>
                       )}
                     </div>
                   </CardContent>
@@ -650,7 +785,9 @@ export default function AnalyticsDashboard() {
               <Card>
                 <CardHeader>
                   <CardTitle>Traffic Sources</CardTitle>
-                  <CardDescription>Where your users are coming from</CardDescription>
+                  <CardDescription>
+                    Where your users are coming from
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {data?.breakdowns?.trafficSources?.length > 0 ? (
@@ -665,12 +802,18 @@ export default function AnalyticsDashboard() {
                         <Bar dataKey="paid" fill="#00C49F" name="Paid" />
                         <Bar dataKey="direct" fill="#FFBB28" name="Direct" />
                         <Bar dataKey="social" fill="#FF8042" name="Social" />
-                        <Bar dataKey="referral" fill="#8884d8" name="Referral" />
+                        <Bar
+                          dataKey="referral"
+                          fill="#8884d8"
+                          name="Referral"
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
                     <div className="flex items-center justify-center h-[300px]">
-                      <p className="text-muted-foreground">No traffic source data</p>
+                      <p className="text-muted-foreground">
+                        No traffic source data
+                      </p>
                     </div>
                   )}
                 </CardContent>

@@ -144,6 +144,20 @@ class ApiService {
     return this.handleResponse<T>(response);
   }
 
+  static async getBlob(endpoint: string, includeAuth: boolean = true): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'GET',
+      headers: this.getHeaders(includeAuth),
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.blob();
+  }
+
   // Utility method to get token (for external use)
   static getAuthToken(): string | null {
     return this.getToken();

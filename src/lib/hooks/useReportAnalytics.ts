@@ -387,14 +387,14 @@ export const useRealTime = (autoRefresh = true) => {
             }
 
             // Transform top pages
-            const topPages = apiData.topPages.map(page => ({
-                path: page.page,
-                title: page.page.split('/').pop() || page.page,
-                activeUsers: page.activeUsers,
+            const topPages = (apiData.topPages || []).map((page: any) => ({
+                path: page?.page || 'Unknown',
+                title: (page?.page || '').split('/').pop() || page?.page || 'Unknown',
+                activeUsers: page?.activeUsers || 0,
                 avgTimeOnPage: Math.floor(60 + Math.random() * 120), // 60-180s
                 newVsReturning: {
-                    new: Math.floor(page.activeUsers * 0.6),
-                    returning: Math.floor(page.activeUsers * 0.4)
+                    new: Math.floor((page?.activeUsers || 0) * 0.6),
+                    returning: Math.floor((page?.activeUsers || 0) * 0.4)
                 }
             }));
 
@@ -422,9 +422,15 @@ export const useRealTime = (autoRefresh = true) => {
                 type: eventTypes[Math.floor(Math.random() * eventTypes.length)],
                 name: eventTypes[Math.floor(Math.random() * eventTypes.length)].replace('_', ' '),
                 value: Math.random() > 0.5 ? Math.floor(Math.random() * 100) : undefined,
-                page: apiData.topPages[Math.floor(Math.random() * apiData.topPages.length)].page,
-                country: apiData.locations[Math.floor(Math.random() * apiData.locations.length)].country,
-                device: apiData.devices[Math.floor(Math.random() * apiData.devices.length)].type
+                page: (apiData.topPages && apiData.topPages.length > 0) 
+                    ? (apiData.topPages[Math.floor(Math.random() * apiData.topPages.length)]?.page || 'Unknown')
+                    : 'Unknown',
+                country: (apiData.locations && apiData.locations.length > 0)
+                    ? (apiData.locations[Math.floor(Math.random() * apiData.locations.length)]?.country || 'Unknown')
+                    : 'Unknown',
+                device: (apiData.devices && apiData.devices.length > 0)
+                    ? (apiData.devices[Math.floor(Math.random() * apiData.devices.length)]?.type || 'desktop')
+                    : 'desktop'
             }));
 
             // Transform device breakdown

@@ -78,23 +78,28 @@ export interface AdminUserStats {
 }
 
 export interface CreateAdminUserRequest {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  username: string;
   password: string;
-  role: 'admin' | 'user' | 'moderator' | 'subscriber';
-  status?: 'active' | 'inactive' | 'suspended' | 'pending';
+  adminLevel: string;
+  department: string;
   phone?: string;
+  isActive?: boolean;
   permissions?: string[];
   sendWelcomeEmail?: boolean;
   requirePasswordChange?: boolean;
 }
 
 export interface UpdateAdminUserRequest {
-  name?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
-  role?: 'admin' | 'user' | 'moderator' | 'subscriber';
-  status?: 'active' | 'inactive' | 'suspended' | 'pending';
+  adminLevel?: string;
+  department?: string;
   phone?: string;
+  isActive?: boolean;
   permissions?: string[];
   isEmailVerified?: boolean;
   twoFactorEnabled?: boolean;

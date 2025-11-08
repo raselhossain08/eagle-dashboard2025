@@ -2,6 +2,7 @@ import ApiService from '../shared/api.service';
 
 export interface ContractTemplate {
   _id: string;
+  id: string; // Custom template ID (e.g., tpl_123_abc)
   name: string;
   templateId: string;
   category: 'investment_agreement' | 'service_agreement' | 'nda' | 'terms_of_service' | 'privacy_policy' | 'advisory_agreement' | 'subscription_agreement' | 'partnership_agreement' | 'employment_contract' | 'consulting_agreement' | 'license_agreement' | 'custom';
@@ -263,9 +264,10 @@ export interface Contract {
 // Request/Response interfaces
 export interface CreateContractTemplateRequest {
   name: string;
-  templateId: string;
+  templateId?: string; // Made optional since backend auto-generates
   category: ContractTemplate['category'];
   locale?: string;
+  status?: ContractTemplate['status']; // Allow setting template status
   content: {
     body: string;
     htmlBody?: string;
@@ -516,22 +518,30 @@ class ContractService {
    */
   async createContractTemplate(templateData: CreateContractTemplateRequest, file?: File): Promise<ApiResponse<ContractTemplate>> {
     try {
-      const formData = new FormData();
+      // Transform the data structure to match backend expectations
+      const transformedData = this.transformTemplateDataForBackend(templateData);
 
-      // Append template data
-      Object.entries(templateData).forEach(([key, value]) => {
-        if (value !== undefined) {
-          formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value as string);
-        }
-      });
-
-      // Append file if provided
       if (file) {
-        formData.append('templateFile', file);
-      }
+        // Use FormData if file is provided
+        const formData = new FormData();
 
-      const response = await ApiService.postFormData<ApiResponse<ContractTemplate>>(this.templatesEndpoint, formData);
-      return response;
+        // Append transformed template data
+        Object.entries(transformedData).forEach(([key, value]) => {
+          if (value !== undefined) {
+            formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value as string);
+          }
+        });
+
+        // Append file
+        formData.append('templateFile', file);
+
+        const response = await ApiService.postFormData<ApiResponse<ContractTemplate>>(this.templatesEndpoint, formData);
+        return response;
+      } else {
+        // Use JSON if no file is provided
+        const response = await ApiService.post<ApiResponse<ContractTemplate>>(this.templatesEndpoint, transformedData);
+        return response;
+      }
     } catch (error) {
       console.error('Create contract template error:', error);
       throw this.handleError(error);
@@ -539,26 +549,119 @@ class ContractService {
   }
 
   /**
+   * Transform frontend template data structure to backend format
+   */
+  private transformTemplateDataForBackend(templateData: CreateContractTemplateRequest) {
+    // Ensure required fields have valid values
+    if (!templateData.name?.trim()) {
+      throw new Error('Template name is required');
+    }
+
+    if (!templateData.content?.body?.trim()) {
+      throw new Error('Template content is required');
+    }
+
+    const locale = templateData.locale || 'en-US';
+    const language = locale.split('-')[0];
+
+    // Transform variables to placeholders format
+    const placeholders = (templateData.content.variables || []).map(variable => ({
+      key: variable.name || `var_${Math.random().toString(36).substr(2, 8)}`,
+      label: variable.label || variable.name || 'Unnamed Variable',
+      type: variable.type === 'currency' ? 'text' : variable.type || 'text',
+      required: variable.required ?? false,
+      defaultValue: variable.defaultValue || '',
+      validation: {
+        pattern: '',
+        minLength: 0,
+        maxLength: 500,
+        min: 0,
+        max: 0
+      }
+    }));
+
+    // Don't include 'id' or 'templateId' - let the backend generate these
+    return {
+      name: templateData.name.trim(),
+      description: templateData.metadata?.description?.trim() || '',
+      content: {
+        languages: {
+          [language]: {
+            title: (templateData.metadata?.title?.trim()) || templateData.name.trim(),
+            body: templateData.content.body.trim(),
+            footer: '',
+            metadata: {
+              language: language,
+              region: locale.includes('-') ? locale.split('-')[1] : '',
+              currency: 'USD'
+            }
+          }
+        },
+        defaultLanguage: language
+      },
+      placeholders: placeholders,
+      config: {
+        applicablePlans: [],
+        applicableRegions: [],
+        signingRequirements: {
+          requireSignature: templateData.legal?.requiresSignature ?? true,
+          allowTypedSignature: true,
+          allowDrawnSignature: true,
+          allowUploadedSignature: false,
+          requireInitials: false,
+          requireIdVerification: false,
+          requireSelfie: false,
+          requireDocumentUpload: false,
+          requiredConsents: []
+        },
+        legal: {
+          termsVersionId: '',
+          privacyVersionId: '',
+          cancellationPolicyVersionId: '',
+          jurisdiction: templateData.metadata?.jurisdiction?.trim() || '',
+          governingLaw: templateData.metadata?.applicableLaw?.trim() || ''
+        },
+        expirationDays: 30,
+        reminderDays: [7, 3, 1]
+      },
+      metadata: {
+        tags: templateData.metadata?.tags || [],
+        category: templateData.category,
+        jurisdiction: templateData.metadata?.jurisdiction?.trim() || '',
+        complianceLevel: 'standard'
+      }
+    };
+  }
+
+  /**
    * Update an existing contract template
    */
   async updateContractTemplate(id: string, templateData: UpdateContractTemplateRequest, file?: File): Promise<ApiResponse<ContractTemplate>> {
     try {
-      const formData = new FormData();
+      // Transform the data structure to match backend expectations
+      const transformedData = this.transformTemplateDataForBackend(templateData as CreateContractTemplateRequest);
 
-      // Append template data
-      Object.entries(templateData).forEach(([key, value]) => {
-        if (value !== undefined) {
-          formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value as string);
-        }
-      });
-
-      // Append file if provided
       if (file) {
-        formData.append('templateFile', file);
-      }
+        // Use FormData if file is provided
+        const formData = new FormData();
 
-      const response = await ApiService.putFormData<ApiResponse<ContractTemplate>>(`${this.templatesEndpoint}/${id}`, formData);
-      return response;
+        // Append transformed template data
+        Object.entries(transformedData).forEach(([key, value]) => {
+          if (value !== undefined) {
+            formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value as string);
+          }
+        });
+
+        // Append file
+        formData.append('templateFile', file);
+
+        const response = await ApiService.putFormData<ApiResponse<ContractTemplate>>(`${this.templatesEndpoint}/${id}`, formData);
+        return response;
+      } else {
+        // Use JSON if no file is provided
+        const response = await ApiService.put<ApiResponse<ContractTemplate>>(`${this.templatesEndpoint}/${id}`, transformedData);
+        return response;
+      }
     } catch (error) {
       console.error('Update contract template error:', error);
       throw this.handleError(error);
