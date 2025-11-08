@@ -2,7 +2,7 @@
 'use client';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Transaction } from '@/lib/transaction/transactionService';
+import { Transaction } from '@/lib/services/transactio.service';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 

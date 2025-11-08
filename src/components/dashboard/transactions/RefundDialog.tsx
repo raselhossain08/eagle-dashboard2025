@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Transaction, transactionService } from '@/lib/transaction/transactionService';
+import { Transaction, transactionService } from '@/lib/services/transactio.service';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 interface RefundDialogProps {

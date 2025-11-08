@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format as formatDate } from 'date-fns';
 import { CalendarIcon, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Transaction } from '@/lib/transaction/transactionService';
+import { Transaction } from '@/lib/services/transactio.service';
 
 interface ExportDialogProps {
     transactions: Transaction[];

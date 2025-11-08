@@ -8,7 +8,6 @@ export interface ApiResponse<T = any> {
 
 // Services Barrel Export - selective to avoid conflicts
 export { AuthService } from './auth';
-export { AnalyticsService } from './analytics';
 export { ContractService } from './contracts';
 export { SubscriptionService } from './subscriptions';
 export { PaymentMethodService } from './payments';
@@ -24,10 +23,11 @@ export { taxService } from './tax.service';
 
 // New API service layer exports
 export { default as ContractAPIService } from './contracts/contract-api.service';
-export { default as AnalyticsAPIService } from './analytics/analytics-api.service';
+
+// New analytics service export
+export { analyticsService as dashboardAnalyticsService } from './analytics.service';
 
 // Legacy service exports (keeping for backward compatibility)
-export { getAnalytics as analyticsService } from './analytics';
 export { default as contractService } from './contracts';
 
 // Export service types from the correct locations
@@ -63,19 +63,6 @@ export type {
   EvidenceData,
   SignatureSubmission as APISignatureSubmission
 } from './contracts/contract-api.service';
-
-export type {
-  PageViewData,
-  EventData,
-  SessionUpdateData,
-  AnalyticsMetric,
-  TrafficSource,
-  TopPage,
-  DeviceBreakdown,
-  ConversionFunnel,
-  AnalyticsEvent,
-  AnalyticsFilter
-} from './analytics/analytics-api.service';
 
 // Admin services exported separately to avoid conflicts
 import {

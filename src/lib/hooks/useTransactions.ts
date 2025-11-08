@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { transactionService, Transaction, TransactionsResponse, TransactionStats, SearchParams } from '../transaction/transactionService';
+import { transactionService, Transaction, TransactionsResponse, TransactionStats, SearchParams } from '../services/transactio.service';
 
 
 export function useTransactions() {

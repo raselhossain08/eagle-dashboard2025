@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TransactionStats } from '@/lib/transaction/transactionService';
+import { TransactionStats } from '@/lib/services/transactio.service';
 import { TrendingUp, TrendingDown, DollarSign, CreditCard, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface StatsOverviewProps {

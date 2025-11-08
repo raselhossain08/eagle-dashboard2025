@@ -13,9 +13,17 @@ interface MetricCardProps {
 
 export function MetricCard({ title, value, change, trend, format = 'number' }: MetricCardProps) {
     const formatValue = (val: string | number) => {
-        if (format === 'percentage') return `${val}%`;
-        if (format === 'duration') return `${Math.round(Number(val) / 60)}m ${Math.round(Number(val) % 60)}s`;
-        return new Intl.NumberFormat().format(Number(val));
+        // Handle NaN, null, undefined, or invalid values
+        const numVal = Number(val);
+        if (isNaN(numVal)) return '0';
+
+        if (format === 'percentage') return `${numVal}%`;
+        if (format === 'duration') {
+            const minutes = Math.round(numVal / 60);
+            const seconds = Math.round(numVal % 60);
+            return `${minutes}m ${seconds}s`;
+        }
+        return new Intl.NumberFormat().format(numVal);
     };
 
     return (
@@ -25,7 +33,7 @@ export function MetricCard({ title, value, change, trend, format = 'number' }: M
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold">{formatValue(value)}</div>
-                {change !== undefined && trend && (
+                {change !== undefined && !isNaN(change) && trend && (
                     <div className={cn(
                         "flex items-center text-xs",
                         trend === 'up' ? 'text-green-600' : 'text-red-600'

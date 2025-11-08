@@ -197,7 +197,12 @@ export class AnalyticsService {
       ? `${AnalyticsService.ENDPOINT}/overview?${queryString}`
       : `${AnalyticsService.ENDPOINT}/overview`;
 
+    console.log('📊 Fetching overview data from:', endpoint);
+
     const response = await ApiService.get<{ success: boolean; data: any }>(endpoint);
+
+    console.log('📈 Overview response:', response);
+
     return response.data || response;
   }
 
@@ -210,9 +215,13 @@ export class AnalyticsService {
   }
 
   async getRealtimeData(): Promise<any> {
+    console.log('⏱️ Fetching realtime data from:', `${AnalyticsService.ENDPOINT}/realtime`);
+
     const response = await ApiService.get<{ success: boolean; data: any }>(
       `${AnalyticsService.ENDPOINT}/realtime`
     );
+
+    console.log('📡 Realtime response:', response);
 
     return response.data || response;
   }

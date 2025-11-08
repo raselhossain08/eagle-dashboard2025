@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Eye, ArrowUpDown } from 'lucide-react';
-import { Transaction } from '@/lib/transaction/transactionService';
+import { Transaction } from '@/lib/services/transactio.service';
 import { TransactionDetailsDialog } from './TransactionDetailsDialog';
 import { RefundDialog } from './RefundDialog';
 

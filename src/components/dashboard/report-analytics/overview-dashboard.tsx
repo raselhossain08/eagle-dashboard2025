@@ -33,15 +33,23 @@ export function OverviewDashboard() {
         <div className="space-y-6">
             {/* Key Metrics Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {data.metrics.map((metric, index) => (
-                    <MetricCard
-                        key={index}
-                        title={metric.title}
-                        value={metric.value}
-                        change={parseFloat(metric.change)}
-                        trend={metric.trend}
-                    />
-                ))}
+                {data.metrics.map((metric, index) => {
+                    // Parse values and ensure they're valid numbers
+                    const value = metric.value && metric.value !== 'NaN' ? metric.value : '0';
+                    const change = metric.change && !isNaN(parseFloat(metric.change))
+                        ? parseFloat(metric.change)
+                        : 0;
+
+                    return (
+                        <MetricCard
+                            key={index}
+                            title={metric.title}
+                            value={value}
+                            change={change}
+                            trend={metric.trend}
+                        />
+                    );
+                })}
             </div>
 
             {/* Top Pages and Sources */}

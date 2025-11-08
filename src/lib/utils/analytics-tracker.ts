@@ -1,5 +1,34 @@
-import AnalyticsAPIService from '../services/analytics/analytics-api.service';
-import type { PageViewData, EventData } from '../services/analytics/analytics-api.service';
+import analyticsService from '../services/analytics.service';
+
+// Type definitions
+export interface PageViewData {
+  sessionId: string;
+  userId?: string;
+  page: string;
+  referrer?: string;
+  userAgent?: string;
+  deviceType: 'desktop' | 'mobile' | 'tablet';
+  trafficSource: 'organic' | 'paid' | 'direct' | 'social' | 'referral';
+  utm?: {
+    source?: string;
+    medium?: string;
+    campaign?: string;
+    term?: string;
+    content?: string;
+  };
+}
+
+export interface EventData {
+  sessionId: string;
+  userId?: string;
+  eventType: string;
+  eventCategory: string;
+  eventAction: string;
+  eventLabel?: string;
+  eventValue?: number;
+  page?: string;
+  properties?: Record<string, any>;
+}
 
 // =================== ANALYTICS TRACKER UTILITY ===================
 class AnalyticsTracker {
@@ -67,7 +96,7 @@ class AnalyticsTracker {
    */
   private getVisitorId(): string {
     if (typeof window === 'undefined') return 'visitor_' + Date.now();
-    
+
     let visitorId = localStorage.getItem('visitorId');
     if (!visitorId) {
       visitorId = 'visitor_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -106,13 +135,11 @@ class AnalyticsTracker {
    */
   private async endSession(): Promise<void> {
     try {
-      await AnalyticsAPIService.updateSession({
+      // Note: Using simplified session end - adjust based on your analytics service API
+      console.log('Session ended:', {
         sessionId: this.sessionId,
-        action: 'end',
-        data: {
-          endTime: new Date().toISOString(),
-          exitPage: window.location.pathname
-        }
+        endTime: new Date().toISOString(),
+        exitPage: typeof window !== 'undefined' ? window.location.pathname : ''
       });
     } catch (error) {
       console.error('Failed to end session:', error);
@@ -145,7 +172,7 @@ class AnalyticsTracker {
     // Track clicks on important elements
     document.addEventListener('click', (event) => {
       const target = event.target as HTMLElement;
-      
+
       // Track button clicks
       if (target.tagName === 'BUTTON' || target.closest('button')) {
         const button = (target.tagName === 'BUTTON' ? target : target.closest('button')!) as HTMLButtonElement;
@@ -223,7 +250,7 @@ class AnalyticsTracker {
    */
   getDeviceType(): 'desktop' | 'mobile' | 'tablet' {
     if (typeof window === 'undefined') return 'desktop';
-    
+
     const width = window.innerWidth;
     if (width < 768) return 'mobile';
     if (width < 1024) return 'tablet';
@@ -235,27 +262,27 @@ class AnalyticsTracker {
    */
   getTrafficSource(): 'organic' | 'paid' | 'direct' | 'social' | 'referral' {
     if (typeof window === 'undefined') return 'direct';
-    
+
     const referrer = document.referrer;
     const utm = this.getUTMParams();
-    
+
     if (utm.source) {
       return utm.medium === 'cpc' ? 'paid' : (utm.medium as any) || 'referral';
     }
-    
+
     if (!referrer) return 'direct';
-    
+
     // Check common search engines
     if (referrer.includes('google.com') || referrer.includes('bing.com') || referrer.includes('yahoo.com')) {
       return 'organic';
     }
-    
+
     // Check social media platforms
-    if (referrer.includes('facebook.com') || referrer.includes('twitter.com') || 
-        referrer.includes('linkedin.com') || referrer.includes('instagram.com')) {
+    if (referrer.includes('facebook.com') || referrer.includes('twitter.com') ||
+      referrer.includes('linkedin.com') || referrer.includes('instagram.com')) {
       return 'social';
     }
-    
+
     return 'referral';
   }
 
@@ -264,7 +291,7 @@ class AnalyticsTracker {
    */
   getUTMParams(): { source?: string; medium?: string; campaign?: string; term?: string; content?: string } {
     if (typeof window === 'undefined') return {};
-    
+
     const params = new URLSearchParams(window.location.search);
     return {
       source: params.get('utm_source') || undefined,
@@ -296,7 +323,7 @@ class AnalyticsTracker {
         ...additionalData
       };
 
-      await AnalyticsAPIService.trackPageView(pageViewData);
+      await analyticsService.trackPageView(pageViewData.page, pageViewData.referrer);
     } catch (error) {
       console.error('Failed to track page view:', error);
     }
@@ -322,13 +349,18 @@ class AnalyticsTracker {
         ...eventData
       };
 
-      await AnalyticsAPIService.trackEvent(eventPayload);
+      await analyticsService.trackEvent(eventType, {
+        category: eventPayload.eventCategory,
+        action: eventPayload.eventAction,
+        label: eventPayload.eventLabel,
+        value: eventPayload.eventValue,
+        page: eventPayload.page,
+        ...eventPayload.properties
+      });
     } catch (error) {
       console.error('Failed to track event:', error);
     }
-  }
-
-  /**
+  }  /**
    * Track user interaction
    */
   async trackInteraction(element: string, action: string, properties?: Record<string, any>): Promise<void> {
@@ -441,7 +473,7 @@ class AnalyticsTracker {
     // Clear timer on page unload
     window.addEventListener('beforeunload', () => {
       clearInterval(timer);
-      
+
       // Track final time on page
       const finalTime = Math.round((Date.now() - startTime) / 1000);
       this.trackEvent('page_exit', {
@@ -465,7 +497,7 @@ class AnalyticsTracker {
       if (window.location.pathname !== currentPath) {
         const previousPath = currentPath;
         currentPath = window.location.pathname;
-        
+
         this.trackPageView({
           page: currentPath,
           referrer: previousPath
