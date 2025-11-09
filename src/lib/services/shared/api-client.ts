@@ -8,6 +8,10 @@ class ApiClient {
     this.client = axios.create({
       baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
       timeout: 30000,
+      withCredentials: true, // Enable sending cookies with cross-origin requests
+      headers: {
+        'Content-Type': 'application/json',
+      }
     })
 
     this.setupInterceptors()
@@ -99,15 +103,27 @@ class ApiClient {
   }
 
   async post<T>(url: string, data?: any): Promise<AxiosResponse<T>> {
-    return this.client.post(url, data)
+    return this.client.post(url, data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: true
+    })
   }
 
   async put<T>(url: string, data?: any): Promise<AxiosResponse<T>> {
-    return this.client.put(url, data)
+    return this.client.put(url, data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: true
+    })
   }
 
   async delete<T>(url: string): Promise<AxiosResponse<T>> {
-    return this.client.delete(url)
+    return this.client.delete(url, {
+      withCredentials: true
+    })
   }
 }
 
