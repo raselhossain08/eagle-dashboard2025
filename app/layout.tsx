@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider, AnalyticsProvider, QueryProvider } from "@/components/providers";
+import {
+  ThemeProvider,
+  AnalyticsProvider,
+  QueryProvider,
+} from "@/components/providers";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthDebugPanel } from "@/components/debug/auth-debug";
 import "./globals.css";
@@ -40,8 +44,10 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <AnalyticsProvider
-              apiBaseUrl={process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/analytics` : '/api/analytics'}
-              enabled={process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_ANALYTICS_ENABLED === 'true'}
+              enabled={
+                process.env.NODE_ENV === "production" ||
+                process.env.NEXT_PUBLIC_ANALYTICS_ENABLED === "true"
+              }
             >
               {children}
               <Toaster position="top-right" richColors />

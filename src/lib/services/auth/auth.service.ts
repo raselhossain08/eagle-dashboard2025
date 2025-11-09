@@ -1,14 +1,26 @@
 
 import { ApiService } from '../shared';
-import {
-  AuthResponse,
+import { AuthResponse as TypesAuthResponse } from '@/lib/types';
+import type {
   LoginRequest,
   RegisterRequest,
-  ForgotPasswordRequest,
-  ResetPasswordRequest,
-  VerifyEmailRequest,
-  User,
-} from '@/lib/types';
+  AuthResponse,
+  User
+} from '@/lib/auth/auth-service';
+
+// Define missing request types locally
+interface ForgotPasswordRequest {
+  email: string;
+}
+
+interface ResetPasswordRequest {
+  password: string;
+  confirmPassword?: string;
+}
+
+interface VerifyEmailRequest {
+  token: string;
+}
 
 class AuthService {
   /**

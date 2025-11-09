@@ -84,6 +84,19 @@ export interface InvoiceAnalytics {
 class InvoiceService {
   private readonly endpoint = '/invoices';
 
+  private getToken(): string | null {
+    if (typeof window === 'undefined') return null;
+
+    try {
+      const cookies = document.cookie.split(';');
+      const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('admin_token='));
+      return tokenCookie ? tokenCookie.split('=')[1].trim() : null;
+    } catch (error) {
+      console.error('Error getting token from cookies:', error);
+      return null;
+    }
+  }
+
   async getInvoices(filters: InvoiceFilters = {}): Promise<{
     invoices: Invoice[];
     total: number;
@@ -125,11 +138,16 @@ class InvoiceService {
   }
 
   async downloadInvoice(id: string): Promise<Blob> {
+    const token = this.getToken();
+    const headers: HeadersInit = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}${this.endpoint}/${id}/download`, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${ApiService.getToken()}`,
-      },
+      headers,
     });
 
     if (!response.ok) {

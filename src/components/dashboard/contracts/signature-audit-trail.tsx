@@ -1,17 +1,22 @@
-
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { 
-  Shield, 
-  Clock, 
-  User, 
-  MapPin, 
-  Monitor, 
-  FileText, 
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import {
+  Shield,
+  Clock,
+  User,
+  MapPin,
+  Monitor,
+  FileText,
   Download,
   Eye,
   CheckCircle,
@@ -19,14 +24,14 @@ import {
   AlertTriangle,
   Mail,
   RefreshCw,
-  Ban
-} from 'lucide-react';
-import { toast } from 'sonner';
-import ContractService, { 
-  Contract, 
-  SignatureAuditEntry, 
-  SignatureVerification
-} from '@/services/contracts';
+  Ban,
+} from "lucide-react";
+import { toast } from "sonner";
+import ContractService, {
+  Contract,
+  SignatureAuditEntry,
+  SignatureVerification,
+} from "@/lib/services/contracts/contract.service";
 
 interface SignatureAuditTrailProps {
   contract: Contract;
@@ -35,11 +40,13 @@ interface SignatureAuditTrailProps {
 
 const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
   contract,
-  className = '',
+  className = "",
 }) => {
   const [auditTrail, setAuditTrail] = useState<SignatureAuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [verifications, setVerifications] = useState<Record<string, SignatureVerification>>({});
+  const [verifications, setVerifications] = useState<
+    Record<string, SignatureVerification>
+  >({});
 
   // Load audit trail
   useEffect(() => {
@@ -49,16 +56,18 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
   const loadAuditTrail = async () => {
     try {
       setLoading(true);
-      const response = await ContractService.getSignatureAuditTrail(contract._id);
-      
+      const response = await ContractService.getSignatureAuditTrail(
+        contract._id
+      );
+
       if (response.success && response.data) {
         setAuditTrail(response.data);
       } else {
-        throw new Error(response.error || 'Failed to load audit trail');
+        throw new Error(response.error || "Failed to load audit trail");
       }
     } catch (error: any) {
-      console.error('Load audit trail error:', error);
-      toast.error(error.message || 'Failed to load signature audit trail');
+      console.error("Load audit trail error:", error);
+      toast.error(error.message || "Failed to load signature audit trail");
     } finally {
       setLoading(false);
     }
@@ -66,58 +75,64 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
 
   const verifySignature = async (signatureId: string) => {
     try {
-      const response = await ContractService.verifySignature(contract._id, signatureId);
-      
+      const response = await ContractService.verifySignature(
+        contract._id,
+        signatureId
+      );
+
       if (response.success && response.data) {
-        setVerifications(prev => ({
+        setVerifications((prev) => ({
           ...prev,
-          [signatureId]: response.data!
+          [signatureId]: response.data!,
         }));
-        
+
         if (response.data.isValid) {
-          toast.success('Signature verified successfully');
+          toast.success("Signature verified successfully");
         } else {
-          toast.warning('Signature verification failed');
+          toast.warning("Signature verification failed");
         }
       } else {
-        throw new Error(response.error || 'Verification failed');
+        throw new Error(response.error || "Verification failed");
       }
     } catch (error: any) {
-      console.error('Signature verification error:', error);
-      toast.error(error.message || 'Failed to verify signature');
+      console.error("Signature verification error:", error);
+      toast.error(error.message || "Failed to verify signature");
     }
   };
 
   const downloadCertificate = async (signatureId: string) => {
     try {
-      const blob = await ContractService.getSignatureCertificate(contract._id, signatureId);
+      const blob = await ContractService.getSignatureCertificate(
+        contract._id,
+        signatureId
+      );
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       link.download = `signature-certificate-${signatureId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
-      toast.success('Certificate downloaded successfully');
+
+      toast.success("Certificate downloaded successfully");
     } catch (error: any) {
-      console.error('Download certificate error:', error);
-      toast.error(error.message || 'Failed to download certificate');
+      console.error("Download certificate error:", error);
+      toast.error(error.message || "Failed to download certificate");
     }
   };
 
   const getActionIcon = (action: string) => {
     switch (action) {
-      case 'signature_added':
+      case "signature_added":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'signature_verified':
+      case "signature_verified":
         return <Shield className="h-4 w-4 text-blue-600" />;
-      case 'signature_sent':
+      case "signature_sent":
         return <Mail className="h-4 w-4 text-purple-600" />;
-      case 'reminder_sent':
+      case "reminder_sent":
         return <RefreshCw className="h-4 w-4 text-orange-600" />;
-      case 'signature_cancelled':
+      case "signature_cancelled":
         return <Ban className="h-4 w-4 text-red-600" />;
       default:
         return <FileText className="h-4 w-4 text-gray-600" />;
@@ -126,30 +141,31 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'signature_added':
-        return 'bg-green-50 border-green-200';
-      case 'signature_verified':
-        return 'bg-blue-50 border-blue-200';
-      case 'signature_sent':
-        return 'bg-purple-50 border-purple-200';
-      case 'reminder_sent':
-        return 'bg-orange-50 border-orange-200';
-      case 'signature_cancelled':
-        return 'bg-red-50 border-red-200';
+      case "signature_added":
+        return "bg-green-50 border-green-200";
+      case "signature_verified":
+        return "bg-blue-50 border-blue-200";
+      case "signature_sent":
+        return "bg-purple-50 border-purple-200";
+      case "reminder_sent":
+        return "bg-orange-50 border-orange-200";
+      case "signature_cancelled":
+        return "bg-red-50 border-red-200";
       default:
-        return 'bg-gray-50 border-gray-200';
+        return "bg-gray-50 border-gray-200";
     }
   };
 
   const formatAction = (action: string) => {
-    return action.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
+    return action
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
-  const renderSignatureDetails = (signature: Contract['signatures'][0]) => {
-    const verification = verifications[signature.signedBy?.toString() || ''];
-    
+  const renderSignatureDetails = (signature: Contract["signatures"][0]) => {
+    const verification = verifications[signature.signedBy?.toString() || ""];
+
     return (
       <Card className="mt-3">
         <CardHeader className="pb-3">
@@ -159,7 +175,9 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => verifySignature(signature.signedBy?.toString() || '')}
+                onClick={() =>
+                  verifySignature(signature.signedBy?.toString() || "")
+                }
                 className="flex items-center gap-1"
               >
                 <Shield className="h-3 w-3" />
@@ -168,7 +186,9 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => downloadCertificate(signature.signedBy?.toString() || '')}
+                onClick={() =>
+                  downloadCertificate(signature.signedBy?.toString() || "")
+                }
                 className="flex items-center gap-1"
               >
                 <Download className="h-3 w-3" />
@@ -181,18 +201,24 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
           {/* Signer Information */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-1">Signer</div>
+              <div className="text-xs font-medium text-gray-500 mb-1">
+                Signer
+              </div>
               <div className="flex items-center gap-2">
                 <User className="h-3 w-3" />
                 <span className="text-sm">{signature.signedByName}</span>
               </div>
               {signature.signedByEmail && (
-                <div className="text-xs text-gray-600 mt-1">{signature.signedByEmail}</div>
+                <div className="text-xs text-gray-600 mt-1">
+                  {signature.signedByEmail}
+                </div>
               )}
             </div>
-            
+
             <div>
-              <div className="text-xs font-medium text-gray-500 mb-1">Method</div>
+              <div className="text-xs font-medium text-gray-500 mb-1">
+                Method
+              </div>
               <Badge variant="secondary">{signature.signatureMethod}</Badge>
             </div>
           </div>
@@ -201,8 +227,10 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
           {signature.signatureData && (
             <div className="space-y-3">
               <Separator />
-              <div className="text-xs font-medium text-gray-500">Technical Details</div>
-              
+              <div className="text-xs font-medium text-gray-500">
+                Technical Details
+              </div>
+
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
                   <div className="font-medium mb-1 flex items-center gap-1">
@@ -210,15 +238,16 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
                     Timestamp
                   </div>
                   <div className="text-sm text-gray-600">
-                    {signature.signatureData?.timestamp ? 
-                      new Date(signature.signatureData.timestamp).toLocaleString() : 
-                      signature.signedAt ? 
-                        new Date(signature.signedAt).toLocaleString() : 
-                        'No timestamp available'
-                    }
+                    {signature.signatureData?.timestamp
+                      ? new Date(
+                          signature.signatureData.timestamp
+                        ).toLocaleString()
+                      : signature.signedAt
+                      ? new Date(signature.signedAt).toLocaleString()
+                      : "No timestamp available"}
                   </div>
                 </div>
-                
+
                 <div>
                   <div className="font-medium mb-1 flex items-center gap-1">
                     <Monitor className="h-3 w-3" />
@@ -229,7 +258,7 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <div className="font-medium mb-1 text-xs flex items-center gap-1">
                   <Monitor className="h-3 w-3" />
@@ -246,22 +275,26 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
           {signature.signatureData?.externalData && (
             <div className="space-y-2">
               <Separator />
-              <div className="text-xs font-medium text-gray-500">Additional Information</div>
-              
+              <div className="text-xs font-medium text-gray-500">
+                Additional Information
+              </div>
+
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
                   <div className="font-medium mb-1">External ID</div>
-                  <div className="text-gray-600">{signature.signatureData.externalId || 'N/A'}</div>
+                  <div className="text-gray-600">
+                    {signature.signatureData.externalId || "N/A"}
+                  </div>
                 </div>
                 <div>
                   <div className="font-medium mb-1">External Status</div>
-                  <div className="text-gray-600">{signature.signatureData.externalStatus || 'N/A'}</div>
+                  <div className="text-gray-600">
+                    {signature.signatureData.externalStatus || "N/A"}
+                  </div>
                 </div>
               </div>
             </div>
           )}
-
-
 
           {/* Verification Results */}
           {verification && (
@@ -271,12 +304,14 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
                 <Shield className="h-3 w-3" />
                 Verification Status
               </div>
-              
-              <div className={`p-3 rounded-md border ${
-                verification.isValid 
-                  ? 'bg-green-50 border-green-200' 
-                  : 'bg-red-50 border-red-200'
-              }`}>
+
+              <div
+                className={`p-3 rounded-md border ${
+                  verification.isValid
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }`}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   {verification.isValid ? (
                     <CheckCircle className="h-4 w-4 text-green-600" />
@@ -284,29 +319,44 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
                     <XCircle className="h-4 w-4 text-red-600" />
                   )}
                   <span className="font-medium text-sm">
-                    {verification.isValid ? 'Signature Valid' : 'Signature Invalid'}
+                    {verification.isValid
+                      ? "Signature Valid"
+                      : "Signature Invalid"}
                   </span>
                 </div>
-                
+
                 <div className="text-xs text-gray-600 space-y-1">
-                  <div>Hash: <span className="font-mono">{verification.hash}</span></div>
-                  <div>Verified at: {new Date(verification.signedAt).toLocaleString()}</div>
+                  <div>
+                    Hash: <span className="font-mono">{verification.hash}</span>
+                  </div>
+                  <div>
+                    Verified at:{" "}
+                    {new Date(verification.signedAt).toLocaleString()}
+                  </div>
                 </div>
-                
+
                 {verification.errors && verification.errors.length > 0 && (
                   <div className="mt-2">
-                    <div className="text-xs font-medium text-red-700 mb-1">Errors:</div>
+                    <div className="text-xs font-medium text-red-700 mb-1">
+                      Errors:
+                    </div>
                     {verification.errors.map((error, index) => (
-                      <div key={index} className="text-xs text-red-600">• {error}</div>
+                      <div key={index} className="text-xs text-red-600">
+                        • {error}
+                      </div>
                     ))}
                   </div>
                 )}
-                
+
                 {verification.warnings && verification.warnings.length > 0 && (
                   <div className="mt-2">
-                    <div className="text-xs font-medium text-orange-700 mb-1">Warnings:</div>
+                    <div className="text-xs font-medium text-orange-700 mb-1">
+                      Warnings:
+                    </div>
                     {verification.warnings.map((warning, index) => (
-                      <div key={index} className="text-xs text-orange-600">• {warning}</div>
+                      <div key={index} className="text-xs text-orange-600">
+                        • {warning}
+                      </div>
                     ))}
                   </div>
                 )}
@@ -328,7 +378,9 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-gray-500">Loading audit trail...</div>
+          <div className="text-center py-8 text-gray-500">
+            Loading audit trail...
+          </div>
         </CardContent>
       </Card>
     );
@@ -353,10 +405,11 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
           </Button>
         </CardTitle>
         <CardDescription>
-          Complete audit trail of all signature-related activities for this contract
+          Complete audit trail of all signature-related activities for this
+          contract
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent>
         {auditTrail.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
@@ -370,13 +423,17 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
                   {index < auditTrail.length - 1 && (
                     <div className="absolute left-6 top-12 w-px h-full bg-gray-200" />
                   )}
-                  
-                  <div className={`border rounded-lg p-4 ${getActionColor(entry.action)}`}>
+
+                  <div
+                    className={`border rounded-lg p-4 ${getActionColor(
+                      entry.action
+                    )}`}
+                  >
                     <div className="flex items-start gap-3">
                       <div className="shrink-0 w-8 h-8 bg-white rounded-full border-2 border-current flex items-center justify-center">
                         {getActionIcon(entry.action)}
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <h4 className="text-sm font-medium">
@@ -386,16 +443,19 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
                             {new Date(entry.timestamp).toLocaleString()}
                           </span>
                         </div>
-                        
+
                         <div className="mt-1 text-sm text-gray-600">
                           {entry.performedByName && (
                             <span>by {entry.performedByName}</span>
                           )}
                           {entry.partyName && (
-                            <span> for {entry.partyName} ({entry.partyType})</span>
+                            <span>
+                              {" "}
+                              for {entry.partyName} ({entry.partyType})
+                            </span>
                           )}
                         </div>
-                        
+
                         {/* Technical Details */}
                         {(entry.ipAddress || entry.userAgent) && (
                           <div className="mt-2 text-xs text-gray-500 space-y-1">
@@ -412,30 +472,44 @@ const SignatureAuditTrail: React.FC<SignatureAuditTrailProps> = ({
                             )}
                           </div>
                         )}
-                        
+
                         {/* Additional Details */}
-                        {entry.details && Object.keys(entry.details).length > 0 && (
-                          <div className="mt-2 p-2 bg-white/50 rounded text-xs">
-                            <div className="font-medium mb-1">Details:</div>
-                            {Object.entries(entry.details).map(([key, value]) => (
-                              <div key={key} className="flex justify-between">
-                                <span className="capitalize">{key.replace(/_/g, ' ')}:</span>
-                                <span className="text-gray-600">{String(value)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        
+                        {entry.details &&
+                          Object.keys(entry.details).length > 0 && (
+                            <div className="mt-2 p-2 bg-white/50 rounded text-xs">
+                              <div className="font-medium mb-1">Details:</div>
+                              {Object.entries(entry.details).map(
+                                ([key, value]) => (
+                                  <div
+                                    key={key}
+                                    className="flex justify-between"
+                                  >
+                                    <span className="capitalize">
+                                      {key.replace(/_/g, " ")}:
+                                    </span>
+                                    <span className="text-gray-600">
+                                      {String(value)}
+                                    </span>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          )}
+
                         {/* Show signature details for signature_added actions */}
-                        {entry.action === 'signature_added' && entry.details.signatureId && (
+                        {entry.action === "signature_added" &&
+                          entry.details.signatureId &&
                           (() => {
-                            const signature = contract.signatures.find(s => 
-                              s.signedBy?.toString() === entry.details.signatureId ||
-                              s.signedByName === entry.performedByName
+                            const signature = contract.signatures.find(
+                              (s) =>
+                                s.signedBy?.toString() ===
+                                  entry.details.signatureId ||
+                                s.signedByName === entry.performedByName
                             );
-                            return signature ? renderSignatureDetails(signature) : null;
-                          })()
-                        )}
+                            return signature
+                              ? renderSignatureDetails(signature)
+                              : null;
+                          })()}
                       </div>
                     </div>
                   </div>

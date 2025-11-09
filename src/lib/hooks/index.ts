@@ -18,10 +18,10 @@ export {
 
 // New Analytics hooks
 export {
-  useAnalytics,
-  useRealTimeAnalytics,
-  useAnalyticsTracker,
-  useBatchAnalytics
+  useAnalyticsData,
+  useRealtimeAnalytics,
+  useAnalyticsTracking,
+  useExportAnalytics
 } from './useAnalytics';
 
 // Transaction hooks

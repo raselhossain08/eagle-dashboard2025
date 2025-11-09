@@ -15,20 +15,20 @@ export type { ApiResponse, ApiError, RequestOptions } from './api-client';
 
 import authServiceInstance, { EagleAuthService } from './auth-service';
 export { default as authService, EagleAuthService } from './auth-service';
-export type { 
-  LoginRequest, 
-  RegisterRequest, 
-  AuthResponse, 
-  User 
+export type {
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+  User
 } from './auth-service';
 
 // React hooks
-export { 
-  useAuth, 
-  useProtectedRoute, 
-  useRoleCheck, 
-  usePermissionCheck, 
-  useAdminAccess 
+export {
+  useAuth,
+  useProtectedRoute,
+  useRoleCheck,
+  usePermissionCheck,
+  useAdminAccess
 } from '../hooks/useAuth';
 export type { UseAuthReturn } from '../hooks/useAuth';
 
@@ -39,21 +39,21 @@ export const auth = {
   getToken: EagleTokenManagerClass.getToken.bind(EagleTokenManagerClass),
   clearToken: EagleTokenManagerClass.clearToken.bind(EagleTokenManagerClass),
   getAuthState: EagleTokenManagerClass.getAuthState.bind(EagleTokenManagerClass),
-  
+
   // User info
   getUserInfo: EagleTokenManagerClass.getUserInfo.bind(EagleTokenManagerClass),
   isAuthenticated: () => EagleTokenManagerClass.getAuthState().isAuthenticated,
-  
+
   // Permissions
   isAdmin: EagleTokenManagerClass.isAdmin.bind(EagleTokenManagerClass),
   hasRole: EagleTokenManagerClass.hasRole.bind(EagleTokenManagerClass),
   hasPermission: EagleTokenManagerClass.hasPermission.bind(EagleTokenManagerClass),
-  
+
   // Service methods
   login: authServiceInstance.login.bind(authServiceInstance),
   logout: authServiceInstance.logout.bind(authServiceInstance),
   register: authServiceInstance.register.bind(authServiceInstance),
-  
+
   // Debug
   debug: () => {
     console.group('🔐 Eagle Auth System Debug');
@@ -80,13 +80,13 @@ export const setupAuth = {
     });
     return state;
   },
-  
+
   /**
    * 🔧 Development helper - quick login check
    */
   checkLogin: async () => {
     try {
-      const isValid = await authService.validateSession();
+      const isValid = await authServiceInstance.validateSession();
       console.log('🔍 Session Valid:', isValid);
       return isValid;
     } catch (error) {
@@ -94,7 +94,7 @@ export const setupAuth = {
       return false;
     }
   },
-  
+
   /**
    * 🛠️ Development helper - complete debug
    */
@@ -105,7 +105,7 @@ export const setupAuth = {
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).eagleAuth = auth;
   (window as any).setupAuth = setupAuth;
-  
+
   console.log('🔐 Eagle Auth System loaded');
   console.log('💡 Use window.eagleAuth or window.setupAuth for debugging');
 }

@@ -1,21 +1,41 @@
-
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
-import { 
-  Users, 
-  TrendingUp, 
-  DollarSign, 
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import {
+  Users,
+  TrendingUp,
+  DollarSign,
   Calendar,
   Search,
   Filter,
@@ -25,8 +45,8 @@ import {
   RotateCcw,
   Trash2,
   Eye,
-  UserPlus
-} from 'lucide-react';
+  UserPlus,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,27 +54,30 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import SubscriptionService, { 
-  Subscription, 
+} from "@/components/ui/dropdown-menu";
+import SubscriptionService, {
+  Subscription,
   SubscriptionAnalytics,
   GetSubscriptionsParams,
   UpdateSubscriptionRequest,
-  CancelSubscriptionRequest 
-} from '@/services/subscriptions';
+  CancelSubscriptionRequest,
+} from "@/services/subscriptions";
 
 // Interfaces imported from service layer
 
 export function SubscriptionManager() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [analytics, setAnalytics] = useState<SubscriptionAnalytics | null>(null);
+  const [analytics, setAnalytics] = useState<SubscriptionAnalytics | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [planTypeFilter, setPlanTypeFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [planTypeFilter, setPlanTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
+  const [selectedSubscription, setSelectedSubscription] =
+    useState<Subscription | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
@@ -62,28 +85,30 @@ export function SubscriptionManager() {
   const fetchSubscriptions = async () => {
     try {
       setLoading(true);
-      
+
       const params: GetSubscriptionsParams = {
         page: currentPage,
         limit: 20,
-        sortBy: 'createdAt',
-        sortOrder: 'desc'
+        sortBy: "createdAt",
+        sortOrder: "desc",
       };
 
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (planTypeFilter !== 'all') params.planType = planTypeFilter;
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (planTypeFilter !== "all") params.planType = planTypeFilter;
 
       const response = await SubscriptionService.getSubscriptions(params);
-      
+
       if (response.success) {
         setSubscriptions(response.data);
         setTotalPages(response.pagination.pages);
       } else {
-        throw new Error(response.error || 'Failed to fetch subscriptions');
+        throw new Error(response.error || "Failed to fetch subscriptions");
       }
     } catch (error) {
-      console.error('Error fetching subscriptions:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch subscriptions');
+      console.error("Error fetching subscriptions:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to fetch subscriptions"
+      );
     } finally {
       setLoading(false);
     }
@@ -93,14 +118,14 @@ export function SubscriptionManager() {
   const fetchAnalytics = async () => {
     try {
       const response = await SubscriptionService.getAnalytics();
-      
+
       if (response.success) {
         setAnalytics(response.data);
       } else {
-        throw new Error(response.error || 'Failed to fetch analytics');
+        throw new Error(response.error || "Failed to fetch analytics");
       }
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      console.error("Error fetching analytics:", error);
       // Don't show toast for analytics errors as it's not critical
     }
   };
@@ -111,103 +136,133 @@ export function SubscriptionManager() {
   }, [currentPage, statusFilter, planTypeFilter]);
 
   // Filter subscriptions by search term
-  const filteredSubscriptions = subscriptions.filter(sub =>
-    sub.userId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sub.userId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sub.planName.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredSubscriptions = subscriptions.filter(
+    (sub) =>
+      sub.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sub.userId?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sub.planName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Handle subscription update using service layer
-  const handleUpdateSubscription = async (subscriptionId: string, updates: UpdateSubscriptionRequest) => {
+  const handleUpdateSubscription = async (
+    subscriptionId: string,
+    updates: UpdateSubscriptionRequest
+  ) => {
     try {
-      const response = await SubscriptionService.updateSubscription(subscriptionId, updates);
-      
+      const response = await SubscriptionService.updateSubscription(
+        subscriptionId,
+        updates
+      );
+
       if (response.success) {
-        toast.success('Subscription updated successfully');
+        toast.success("Subscription updated successfully");
         fetchSubscriptions();
         setShowEditDialog(false);
       } else {
-        throw new Error(response.error || 'Failed to update subscription');
+        throw new Error(response.error || "Failed to update subscription");
       }
     } catch (error) {
-      console.error('Error updating subscription:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update subscription');
+      console.error("Error updating subscription:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update subscription"
+      );
     }
   };
 
   // Handle subscription cancellation using service layer
-  const handleCancelSubscription = async (subscriptionId: string, reason: string) => {
+  const handleCancelSubscription = async (
+    subscriptionId: string,
+    reason: string
+  ) => {
     try {
       const cancelData: CancelSubscriptionRequest = { reason };
-      const response = await SubscriptionService.cancelSubscription(subscriptionId, cancelData);
-      
+      const response = await SubscriptionService.cancelSubscription(
+        subscriptionId,
+        cancelData
+      );
+
       if (response.success) {
-        toast.success('Subscription cancelled successfully');
+        toast.success("Subscription cancelled successfully");
         fetchSubscriptions();
         setShowCancelDialog(false);
       } else {
-        throw new Error(response.error || 'Failed to cancel subscription');
+        throw new Error(response.error || "Failed to cancel subscription");
       }
     } catch (error) {
-      console.error('Error cancelling subscription:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to cancel subscription');
+      console.error("Error cancelling subscription:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to cancel subscription"
+      );
     }
   };
 
   // Handle subscription reactivation using service layer
   const handleReactivateSubscription = async (subscriptionId: string) => {
     try {
-      const response = await SubscriptionService.reactivateSubscription(subscriptionId);
-      
+      const response = await SubscriptionService.reactivateSubscription(
+        subscriptionId
+      );
+
       if (response.success) {
-        toast.success('Subscription reactivated successfully');
+        toast.success("Subscription reactivated successfully");
         fetchSubscriptions();
       } else {
-        throw new Error(response.error || 'Failed to reactivate subscription');
+        throw new Error(response.error || "Failed to reactivate subscription");
       }
     } catch (error) {
-      console.error('Error reactivating subscription:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to reactivate subscription');
+      console.error("Error reactivating subscription:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to reactivate subscription"
+      );
     }
   };
 
   // Handle subscription deletion using service layer
   const handleDeleteSubscription = async (subscriptionId: string) => {
-    if (!confirm('Are you sure you want to delete this subscription? This action cannot be undone.')) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this subscription? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
     try {
-      const response = await SubscriptionService.deleteSubscription(subscriptionId);
-      
+      const response = await SubscriptionService.deleteSubscription(
+        subscriptionId
+      );
+
       if (response.success) {
-        toast.success('Subscription deleted successfully');
+        toast.success("Subscription deleted successfully");
         fetchSubscriptions();
       } else {
-        throw new Error(response.error || 'Failed to delete subscription');
+        throw new Error(response.error || "Failed to delete subscription");
       }
     } catch (error) {
-      console.error('Error deleting subscription:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to delete subscription');
+      console.error("Error deleting subscription:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete subscription"
+      );
     }
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      active: { color: 'bg-green-500', text: 'Active' },
-      cancelled: { color: 'bg-red-500', text: 'Cancelled' },
-      expired: { color: 'bg-gray-500', text: 'Expired' },
-      pending: { color: 'bg-yellow-500', text: 'Pending' },
-      suspended: { color: 'bg-orange-500', text: 'Suspended' },
-      trial: { color: 'bg-blue-500', text: 'Trial' }
+      active: { color: "bg-green-500", text: "Active" },
+      cancelled: { color: "bg-red-500", text: "Cancelled" },
+      expired: { color: "bg-gray-500", text: "Expired" },
+      pending: { color: "bg-yellow-500", text: "Pending" },
+      suspended: { color: "bg-orange-500", text: "Suspended" },
+      trial: { color: "bg-blue-500", text: "Trial" },
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    const config =
+      statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
 
     return (
-      <Badge className={`${config.color} text-white`}>
-        {config.text}
-      </Badge>
+      <Badge className={`${config.color} text-white`}>{config.text}</Badge>
     );
   };
 
@@ -226,21 +281,29 @@ export function SubscriptionManager() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Active Subscriptions
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.summary.totalActive}</div>
+              <div className="text-2xl font-bold">
+                {analytics.overview.activeSubscribers}
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">New This Period</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                New This Period
+              </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.summary.newSubscriptions}</div>
+              <div className="text-2xl font-bold">
+                {analytics.growth.newSubscribers}
+              </div>
             </CardContent>
           </Card>
 
@@ -250,7 +313,9 @@ export function SubscriptionManager() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${analytics.summary.revenue.toLocaleString()}</div>
+              <div className="text-2xl font-bold">
+                ${analytics.revenue.mrr.toLocaleString()}
+              </div>
             </CardContent>
           </Card>
 
@@ -260,7 +325,9 @@ export function SubscriptionManager() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.summary.churnCount}</div>
+              <div className="text-2xl font-bold">
+                {analytics.overview.churnedSubscribers}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -335,22 +402,40 @@ export function SubscriptionManager() {
                   <TableRow key={subscription._id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{subscription.userId.name}</div>
-                        <div className="text-sm text-muted-foreground">{subscription.userId.email}</div>
+                        <div className="font-medium">
+                          {subscription.userId?.name || "N/A"}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {subscription.userId?.email || "N/A"}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{subscription.planName}</div>
-                        <div className="text-sm text-muted-foreground">{subscription.planType}</div>
+                        <div className="font-medium">
+                          {subscription.planName}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {subscription.planType}
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell>{getStatusBadge(subscription.status)}</TableCell>
-                    <TableCell className="capitalize">{subscription.billingCycle}</TableCell>
-                    <TableCell>${subscription.price}</TableCell>
-                    <TableCell>{new Date(subscription.startDate).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      {subscription.daysRemaining !== null ? `${subscription.daysRemaining} days` : 'Lifetime'}
+                      {getStatusBadge(subscription.status || "pending")}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {subscription.billingCycle}
+                    </TableCell>
+                    <TableCell>${subscription.price}</TableCell>
+                    <TableCell>
+                      {subscription.startDate
+                        ? new Date(subscription.startDate).toLocaleDateString()
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {subscription.daysRemaining !== null
+                        ? `${subscription.daysRemaining} days`
+                        : "Lifetime"}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -361,32 +446,42 @@ export function SubscriptionManager() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedSubscription(subscription);
-                            setShowEditDialog(true);
-                          }}>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedSubscription(subscription);
+                              setShowEditDialog(true);
+                            }}
+                          >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
-                          {subscription.status === 'active' && (
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedSubscription(subscription);
-                              setShowCancelDialog(true);
-                            }}>
+                          {subscription.status === "active" && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedSubscription(subscription);
+                                setShowCancelDialog(true);
+                              }}
+                            >
                               <Ban className="mr-2 h-4 w-4" />
                               Cancel
                             </DropdownMenuItem>
                           )}
-                          {subscription.status === 'cancelled' && (
-                            <DropdownMenuItem onClick={() => handleReactivateSubscription(subscription._id)}>
+                          {subscription.status === "cancelled" && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleReactivateSubscription(subscription._id)
+                              }
+                            >
                               <RotateCcw className="mr-2 h-4 w-4" />
                               Reactivate
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="text-red-600"
-                            onClick={() => handleDeleteSubscription(subscription._id)}
+                            onClick={() =>
+                              handleDeleteSubscription(subscription._id)
+                            }
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
@@ -403,13 +498,14 @@ export function SubscriptionManager() {
           {/* Pagination */}
           <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-muted-foreground">
-              Showing {filteredSubscriptions.length} of {subscriptions.length} subscriptions
+              Showing {filteredSubscriptions.length} of {subscriptions.length}{" "}
+              subscriptions
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
               >
                 Previous
@@ -417,7 +513,9 @@ export function SubscriptionManager() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
                 disabled={currentPage === totalPages}
               >
                 Next
@@ -433,7 +531,8 @@ export function SubscriptionManager() {
           <DialogHeader>
             <DialogTitle>Edit Subscription</DialogTitle>
             <DialogDescription>
-              Update subscription details for {selectedSubscription?.userId.name}
+              Update subscription details for{" "}
+              {selectedSubscription?.userId?.name || "this user"}
             </DialogDescription>
           </DialogHeader>
           {selectedSubscription && (
@@ -452,7 +551,9 @@ export function SubscriptionManager() {
           <DialogHeader>
             <DialogTitle>Cancel Subscription</DialogTitle>
             <DialogDescription>
-              Are you sure you want to cancel {selectedSubscription?.userId.name}'s subscription?
+              Are you sure you want to cancel{" "}
+              {selectedSubscription?.userId?.name || "this user"}'s
+              subscription?
             </DialogDescription>
           </DialogHeader>
           {selectedSubscription && (
@@ -469,7 +570,11 @@ export function SubscriptionManager() {
 }
 
 // Edit Subscription Form Component
-function EditSubscriptionForm({ subscription, onSave, onCancel }: {
+function EditSubscriptionForm({
+  subscription,
+  onSave,
+  onCancel,
+}: {
   subscription: Subscription;
   onSave: (id: string, updates: UpdateSubscriptionRequest) => void;
   onCancel: () => void;
@@ -478,14 +583,19 @@ function EditSubscriptionForm({ subscription, onSave, onCancel }: {
     status: subscription.status,
     price: subscription.price,
     billingCycle: subscription.billingCycle,
-    adminNotes: ''
+    adminNotes: "",
   });
 
   return (
     <div className="space-y-4">
       <div>
         <Label htmlFor="status">Status</Label>
-        <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+        <Select
+          value={formData.status}
+          onValueChange={(value) =>
+            setFormData((prev) => ({ ...prev, status: value }))
+          }
+        >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -504,13 +614,20 @@ function EditSubscriptionForm({ subscription, onSave, onCancel }: {
           id="price"
           type="number"
           value={formData.price}
-          onChange={(e) => setFormData(prev => ({ ...prev, price: Number(e.target.value) }))}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, price: Number(e.target.value) }))
+          }
         />
       </div>
 
       <div>
         <Label htmlFor="billingCycle">Billing Cycle</Label>
-        <Select value={formData.billingCycle} onValueChange={(value) => setFormData(prev => ({ ...prev, billingCycle: value }))}>
+        <Select
+          value={formData.billingCycle}
+          onValueChange={(value) =>
+            setFormData((prev) => ({ ...prev, billingCycle: value }))
+          }
+        >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -527,26 +644,36 @@ function EditSubscriptionForm({ subscription, onSave, onCancel }: {
         <Textarea
           id="adminNotes"
           value={formData.adminNotes}
-          onChange={(e) => setFormData(prev => ({ ...prev, adminNotes: e.target.value }))}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, adminNotes: e.target.value }))
+          }
           placeholder="Add notes about this change..."
         />
       </div>
 
       <DialogFooter>
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={() => onSave(subscription._id, formData)}>Save Changes</Button>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button onClick={() => onSave(subscription._id, formData)}>
+          Save Changes
+        </Button>
       </DialogFooter>
     </div>
   );
 }
 
 // Cancel Subscription Form Component
-function CancelSubscriptionForm({ subscription, onSave, onCancel }: {
+function CancelSubscriptionForm({
+  subscription,
+  onSave,
+  onCancel,
+}: {
   subscription: Subscription;
   onSave: (id: string, reason: string) => void;
   onCancel: () => void;
 }) {
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState("");
 
   return (
     <div className="space-y-4">
@@ -562,9 +689,11 @@ function CancelSubscriptionForm({ subscription, onSave, onCancel }: {
       </div>
 
       <DialogFooter>
-        <Button variant="outline" onClick={onCancel}>Keep Subscription</Button>
-        <Button 
-          variant="destructive" 
+        <Button variant="outline" onClick={onCancel}>
+          Keep Subscription
+        </Button>
+        <Button
+          variant="destructive"
           onClick={() => onSave(subscription._id, reason)}
           disabled={!reason.trim()}
         >

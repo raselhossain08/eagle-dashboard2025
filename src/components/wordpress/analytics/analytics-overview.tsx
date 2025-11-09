@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, FileText, ShoppingCart, MessageSquare } from 'lucide-react';
-import { AnalyticsData } from '@/types/analytics';
-import { analyticsService } from '@/services/analyticsService';
+import { AnalyticsData } from '@/wordpress/types/analytics';
+import { analyticsService } from '@/wordpress/services/analyticsService';
 
 interface AnalyticsOverviewProps {
     data: AnalyticsData;

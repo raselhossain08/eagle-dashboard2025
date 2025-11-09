@@ -112,3 +112,6 @@ export function throttle<T extends (...args: any[]) => any>(
 // Export analytics tracker
 export { tracker as analyticsTracker } from './analytics-tracker';
 export { default as AnalyticsTracker } from './analytics-tracker';
+
+// Export safe token utilities
+export { SafeTokenUtils } from './safe-token.utils';

@@ -243,8 +243,8 @@ const ContractTemplatesManagement: React.FC = () => {
       if (editingTemplate) {
         const response = await ContractService.updateContractTemplate(
           editingTemplate.id ||
-          editingTemplate.templateId ||
-          editingTemplate._id,
+            editingTemplate.templateId ||
+            editingTemplate._id,
           data
         );
         if (response.success) {
@@ -387,14 +387,14 @@ const ContractTemplatesManagement: React.FC = () => {
     // First confirmation with warning
     const confirmed = window.confirm(
       `⚠️ WARNING: Delete Template\n\n` +
-      `Template: "${template.name}"\n` +
-      `Category: ${template.category}\n` +
-      `Status: ${template.status}\n\n` +
-      `This action will:\n` +
-      `• Permanently delete this template\n` +
-      `• Remove it from all associated contracts\n` +
-      `• Cannot be undone\n\n` +
-      `Are you absolutely sure you want to delete this template?`
+        `Template: "${template.name}"\n` +
+        `Category: ${template.category}\n` +
+        `Status: ${template.status}\n\n` +
+        `This action will:\n` +
+        `• Permanently delete this template\n` +
+        `• Remove it from all associated contracts\n` +
+        `• Cannot be undone\n\n` +
+        `Are you absolutely sure you want to delete this template?`
     );
 
     if (!confirmed) return;
@@ -402,9 +402,9 @@ const ContractTemplatesManagement: React.FC = () => {
     // Second confirmation (safety measure)
     const finalConfirm = window.confirm(
       `FINAL CONFIRMATION\n\n` +
-      `Type the template name to confirm deletion:\n` +
-      `Expected: "${template.name}"\n\n` +
-      `Click OK to proceed with deletion.`
+        `Type the template name to confirm deletion:\n` +
+        `Expected: "${template.name}"\n\n` +
+        `Click OK to proceed with deletion.`
     );
 
     if (!finalConfirm) return;
@@ -414,6 +414,57 @@ const ContractTemplatesManagement: React.FC = () => {
 
       const response = await ContractService.deleteContractTemplate(
         template.id || template.templateId || template._id
+      );
+
+      if (response.success) {
+        toast.success(
+          `Template "${template.name || "Unknown"}" deleted successfully`
+        );
+        loadTemplates();
+        setDeleteDialogOpen(false);
+        setDeletingTemplate(null);
+      } else {
+        throw new Error(response.error || "Failed to delete template");
+      }
+    } catch (error: any) {
+      console.error("Delete template error:", error);
+
+      // Provide user-friendly error messages
+      let errorMessage = "Failed to delete template";
+
+      if (
+        error.message?.includes("in use") ||
+        error.message?.includes("associated")
+      ) {
+        errorMessage =
+          "Cannot delete template: It is being used by existing contracts";
+      } else if (
+        error.message?.includes("permission") ||
+        error.message?.includes("authorized")
+      ) {
+        errorMessage = "You do not have permission to delete this template";
+      } else if (error.message?.includes("not found")) {
+        errorMessage = "Template not found. It may have been already deleted.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error(errorMessage);
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const confirmDeleteTemplate = async () => {
+    if (!deletingTemplate) return;
+
+    try {
+      setFormLoading(true);
+
+      const response = await ContractService.deleteContractTemplate(
+        deletingTemplate.id ||
+          deletingTemplate.templateId ||
+          deletingTemplate._id
       );
 
       if (response.success) {
@@ -429,7 +480,6 @@ const ContractTemplatesManagement: React.FC = () => {
     } catch (error: any) {
       console.error("Delete template error:", error);
 
-      // Provide user-friendly error messages
       let errorMessage = "Failed to delete template";
 
       if (
@@ -546,18 +596,22 @@ const ContractTemplatesManagement: React.FC = () => {
     // Plan filtering logic
     // Note: This assumes templates have a 'config.applicablePlans' field
     // If backend doesn't support this yet, this will show all templates
-    const matchesPlan = selectedPlan === "all" || (() => {
-      // Check if template has applicable plans configuration
-      const templateConfig = (template as any).config;
-      if (!templateConfig?.applicablePlans) {
-        // If no plan configuration, show in "all" only
-        return selectedPlan === "all";
-      }
+    const matchesPlan =
+      selectedPlan === "all" ||
+      (() => {
+        // Check if template has applicable plans configuration
+        const templateConfig = (template as any).config;
+        if (!templateConfig?.applicablePlans) {
+          // If no plan configuration, show in "all" only
+          return selectedPlan === "all";
+        }
 
-      // Check if selected plan is in the applicable plans
-      const applicablePlans = templateConfig.applicablePlans as string[];
-      return applicablePlans.includes(selectedPlan) || applicablePlans.length === 0;
-    })();
+        // Check if selected plan is in the applicable plans
+        const applicablePlans = templateConfig.applicablePlans as string[];
+        return (
+          applicablePlans.includes(selectedPlan) || applicablePlans.length === 0
+        );
+      })();
 
     return matchesSearch && matchesPlan;
   });
@@ -782,8 +836,6 @@ const ContractTemplatesManagement: React.FC = () => {
                   <TableHead>Category</TableHead>
                   <TableHead>Version</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Language</TableHead>
-                  <TableHead>Associated Plan</TableHead>
                   <TableHead>Updated</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -796,7 +848,7 @@ const ContractTemplatesManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                        {template.templateId}
+                        {template.id}
                       </code>
                     </TableCell>
                     <TableCell>{getCategoryBadge(template.category)}</TableCell>
@@ -804,10 +856,10 @@ const ContractTemplatesManagement: React.FC = () => {
                       <Badge variant="outline">v{template.versionString}</Badge>
                     </TableCell>
                     <TableCell>{getStatusBadge(template.status)}</TableCell>
-                    <TableCell>{template.language}</TableCell>
-                    <TableCell>
+                    {/* <TableCell>{template.language}</TableCell> */}
+                    {/* <TableCell>
                       {selectedPlan !== "all" &&
-                        plans.find((p) => p._id === selectedPlan) ? (
+                      plans.find((p) => p._id === selectedPlan) ? (
                         getPlanBadge(selectedPlan)
                       ) : (
                         <Badge
@@ -818,7 +870,7 @@ const ContractTemplatesManagement: React.FC = () => {
                           No Plan Associated
                         </Badge>
                       )}
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell>{template.name}</TableCell>
                     <TableCell>
                       {template.updatedAt

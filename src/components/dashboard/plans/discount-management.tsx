@@ -1,27 +1,86 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, Filter, Download, Upload, MoreVertical, Eye, Edit, Trash2, Clock, TrendingUp, Users, DollarSign, Package } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Filter,
+  Download,
+  Upload,
+  MoreVertical,
+  Eye,
+  Edit,
+  Trash2,
+  Clock,
+  TrendingUp,
+  Users,
+  DollarSign,
+  Package,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { discountService, type Discount, type DiscountFilters, type DiscountAnalytics } from "@/lib/services/plans/discount.service";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import {
+  discountService,
+  type Discount,
+  type DiscountFilters,
+  type DiscountAnalytics,
+} from "@/lib/services/plans/discount.service";
 import { usePermissions } from "@/hooks/use-permissions";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DiscountForm, DiscountAnalyticsCard } from "./index";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function DiscountManagement() {
-  const { toast } = useToast();
   const { hasPermission } = usePermissions();
-  
+
   // State management
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [analytics, setAnalytics] = useState<DiscountAnalytics | null>(null);
@@ -31,14 +90,14 @@ export default function DiscountManagement() {
   const [filters, setFilters] = useState<DiscountFilters>({
     page: 1,
     limit: 20,
-    sortBy: 'createdAt',
-    sortOrder: 'desc'
+    sortBy: "createdAt",
+    sortOrder: "desc",
   });
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     totalItems: 0,
-    limit: 20
+    limit: 20,
   });
   const [showForm, setShowForm] = useState(false);
   const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
@@ -47,22 +106,22 @@ export default function DiscountManagement() {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   // Permissions
-  const canCreate = hasPermission('discount:create');
-  const canEdit = hasPermission('discount:update');
-  const canDelete = hasPermission('discount:delete');
-  const canViewAnalytics = hasPermission('discount:analytics');
-  const canApprove = hasPermission('discount:approve');
-  const canBulkOperations = hasPermission('discount:bulk');
+  const canCreate = hasPermission("discount:create");
+  const canEdit = hasPermission("discount:update");
+  const canDelete = hasPermission("discount:delete");
+  const canViewAnalytics = hasPermission("discount:analytics");
+  const canApprove = hasPermission("discount:approve");
+  const canBulkOperations = hasPermission("discount:bulk");
 
   // Fetch discounts
   const fetchDiscounts = async (newFilters?: Partial<DiscountFilters>) => {
     setLoading(true);
     const updatedFilters = { ...filters, ...newFilters };
-    
+
     try {
       const response = await discountService.getAllDiscounts({
         ...updatedFilters,
-        search: searchTerm || undefined
+        search: searchTerm || undefined,
       });
 
       if (response.success && response.data) {
@@ -71,21 +130,13 @@ export default function DiscountManagement() {
           currentPage: response.data.currentPage || 1,
           totalPages: response.data.totalPages || 1,
           totalItems: response.data.totalItems || 0,
-          limit: response.data.limit || 20
+          limit: response.data.limit || 20,
         });
       } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to load discounts",
-          variant: "destructive",
-        });
+        toast.error(response.error || "Failed to load discounts");
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load discounts",
-        variant: "destructive",
-      });
+      toast.error("Failed to load discounts");
     } finally {
       setLoading(false);
     }
@@ -94,14 +145,14 @@ export default function DiscountManagement() {
   // Fetch analytics
   const fetchAnalytics = async () => {
     if (!canViewAnalytics) return;
-    
+
     try {
       const response = await discountService.getAnalytics();
       if (response.success && response.data) {
         setAnalytics(response.data);
       }
     } catch (error) {
-      console.error('Failed to load analytics:', error);
+      console.error("Failed to load analytics:", error);
     }
   };
 
@@ -118,10 +169,10 @@ export default function DiscountManagement() {
 
   // Filter change handler
   const handleFilterChange = (key: keyof DiscountFilters, value: string) => {
-    const newFilters = { 
-      ...filters, 
-      [key]: value === 'all' ? undefined : value,
-      page: 1 
+    const newFilters = {
+      ...filters,
+      [key]: value === "all" ? undefined : value,
+      page: 1,
     };
     setFilters(newFilters);
     fetchDiscounts(newFilters);
@@ -137,7 +188,7 @@ export default function DiscountManagement() {
   // Selection handlers
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedDiscounts(discounts.map(d => d._id!));
+      setSelectedDiscounts(discounts.map((d) => d._id!));
     } else {
       setSelectedDiscounts([]);
     }
@@ -147,7 +198,7 @@ export default function DiscountManagement() {
     if (checked) {
       setSelectedDiscounts([...selectedDiscounts, id]);
     } else {
-      setSelectedDiscounts(selectedDiscounts.filter(sid => sid !== id));
+      setSelectedDiscounts(selectedDiscounts.filter((sid) => sid !== id));
     }
   };
 
@@ -166,24 +217,13 @@ export default function DiscountManagement() {
     try {
       const response = await discountService.deleteDiscount(id);
       if (response.success) {
-        toast({
-          title: "Success",
-          description: "Discount deleted successfully",
-        });
+        toast.success("Discount deleted successfully");
         fetchDiscounts();
       } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to delete discount",
-          variant: "destructive",
-        });
+        toast.error(response.error || "Failed to delete discount");
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete discount",
-        variant: "destructive",
-      });
+      toast.error("Failed to delete discount");
     }
     setDeleteDialogOpen(false);
     setDiscountToDelete(null);
@@ -196,106 +236,83 @@ export default function DiscountManagement() {
     try {
       const response = await discountService.bulkOperation({
         discountIds: selectedDiscounts,
-        operation: 'delete'
+        operation: "delete",
       });
 
       if (response.success) {
-        toast({
-          title: "Success",
-          description: `${selectedDiscounts.length} discount(s) deleted successfully`,
-        });
+        toast.success(
+          `${selectedDiscounts.length} discount(s) deleted successfully`
+        );
         setSelectedDiscounts([]);
         fetchDiscounts();
       } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to delete discounts",
-          variant: "destructive",
-        });
+        toast.error(response.error || "Failed to delete discounts");
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete discounts",
-        variant: "destructive",
-      });
+      toast.error("Failed to delete discounts");
     }
     setBulkDeleteDialogOpen(false);
   };
 
-  const handleBulkStatusChange = async (status: 'active' | 'inactive') => {
+  const handleBulkStatusChange = async (status: "active" | "inactive") => {
     if (selectedDiscounts.length === 0) return;
 
     try {
       const response = await discountService.bulkOperation({
         discountIds: selectedDiscounts,
-        operation: 'update',
-        updateData: { status }
+        operation: "update",
+        updateData: { status },
       });
 
       if (response.success) {
-        toast({
-          title: "Success",
-          description: `${selectedDiscounts.length} discount(s) ${status === 'active' ? 'activated' : 'deactivated'} successfully`,
-        });
+        toast.success(
+          `${selectedDiscounts.length} discount(s) ${
+            status === "active" ? "activated" : "deactivated"
+          } successfully`
+        );
         setSelectedDiscounts([]);
         fetchDiscounts();
       } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to update discounts",
-          variant: "destructive",
-        });
+        toast.error(response.error || "Failed to update discounts");
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update discounts",
-        variant: "destructive",
-      });
+      toast.error("Failed to update discounts");
     }
   };
 
   // Export handler
-  const handleExport = async (format: 'json' | 'csv' = 'csv') => {
+  const handleExport = async (format: "json" | "csv" = "csv") => {
     try {
       const response = await discountService.exportDiscounts({
         format,
         includeUsage: true,
         startDate: filters.startDate,
-        endDate: filters.endDate
+        endDate: filters.endDate,
       });
 
       if (response.success) {
-        if (format === 'json') {
-          const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+        if (format === "json") {
+          const blob = new Blob([JSON.stringify(response.data, null, 2)], {
+            type: "application/json",
+          });
           const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
+          const a = document.createElement("a");
           a.href = url;
-          a.download = `discounts-export-${new Date().toISOString().split('T')[0]}.json`;
+          a.download = `discounts-export-${
+            new Date().toISOString().split("T")[0]
+          }.json`;
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
           document.body.removeChild(a);
         }
-        
-        toast({
-          title: "Success",
-          description: "Discounts exported successfully",
-        });
+
+        toast.success("Discounts exported successfully");
       } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to export discounts",
-          variant: "destructive",
-        });
+        toast.error(response.error || "Failed to export discounts");
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to export discounts",
-        variant: "destructive",
-      });
+      toast.error("Failed to export discounts");
     }
   };
 
@@ -313,57 +330,72 @@ export default function DiscountManagement() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Discounts</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Discounts
+              </CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.overall.totalDiscounts}</div>
+              <div className="text-2xl font-bold">
+                {analytics.overall.totalDiscounts}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {analytics.overall.activeDiscounts} active
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Uses</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.overall.totalUses}</div>
+              <div className="text-2xl font-bold">
+                {analytics.overall.totalUses}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {analytics.overall.utilizationRate}% utilization rate
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Savings</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Savings
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {discountService.formatCurrency(analytics.overall.totalDiscountAmount)}
+                {discountService.formatCurrency(
+                  analytics.overall.totalDiscountAmount
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Avg: {discountService.formatCurrency(analytics.overall.averageDiscountValue)}
+                Avg:{" "}
+                {discountService.formatCurrency(
+                  analytics.overall.averageDiscountValue
+                )}
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenue Impact</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Revenue Impact
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {discountService.formatCurrency(analytics.overall.totalOrderValue)}
+                {discountService.formatCurrency(
+                  analytics.overall.totalOrderValue
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Total order value
-              </p>
+              <p className="text-xs text-muted-foreground">Total order value</p>
             </CardContent>
           </Card>
         </div>
@@ -376,7 +408,8 @@ export default function DiscountManagement() {
             <div>
               <CardTitle>Discount Management</CardTitle>
               <CardDescription>
-                Create and manage discount codes, track usage, and analyze performance
+                Create and manage discount codes, track usage, and analyze
+                performance
               </CardDescription>
             </div>
             <div className="flex space-x-2">
@@ -394,10 +427,10 @@ export default function DiscountManagement() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handleExport('csv')}>
+                  <DropdownMenuItem onClick={() => handleExport("csv")}>
                     Export as CSV
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport('json')}>
+                  <DropdownMenuItem onClick={() => handleExport("json")}>
                     Export as JSON
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -417,7 +450,7 @@ export default function DiscountManagement() {
                     placeholder="Search discounts..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                     className="pl-8"
                   />
                 </div>
@@ -426,7 +459,9 @@ export default function DiscountManagement() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-              <Select onValueChange={(value) => handleFilterChange('type', value)}>
+              <Select
+                onValueChange={(value) => handleFilterChange("type", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
@@ -439,7 +474,9 @@ export default function DiscountManagement() {
                 </SelectContent>
               </Select>
 
-              <Select onValueChange={(value) => handleFilterChange('status', value)}>
+              <Select
+                onValueChange={(value) => handleFilterChange("status", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -453,7 +490,9 @@ export default function DiscountManagement() {
                 </SelectContent>
               </Select>
 
-              <Select onValueChange={(value) => handleFilterChange('isPublic', value)}>
+              <Select
+                onValueChange={(value) => handleFilterChange("isPublic", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Visibility" />
                 </SelectTrigger>
@@ -464,7 +503,9 @@ export default function DiscountManagement() {
                 </SelectContent>
               </Select>
 
-              <Select onValueChange={(value) => handleFilterChange('sortBy', value)}>
+              <Select
+                onValueChange={(value) => handleFilterChange("sortBy", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
@@ -477,7 +518,11 @@ export default function DiscountManagement() {
                 </SelectContent>
               </Select>
 
-              <Select onValueChange={(value) => handleFilterChange('sortOrder', value as 'asc' | 'desc')}>
+              <Select
+                onValueChange={(value) =>
+                  handleFilterChange("sortOrder", value as "asc" | "desc")
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Order" />
                 </SelectTrigger>
@@ -497,14 +542,14 @@ export default function DiscountManagement() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleBulkStatusChange('active')}
+                  onClick={() => handleBulkStatusChange("active")}
                 >
                   Activate
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleBulkStatusChange('inactive')}
+                  onClick={() => handleBulkStatusChange("inactive")}
                 >
                   Deactivate
                 </Button>
@@ -534,7 +579,10 @@ export default function DiscountManagement() {
                     {canBulkOperations && (
                       <TableHead className="w-12">
                         <Checkbox
-                          checked={selectedDiscounts.length === discounts.length && discounts.length > 0}
+                          checked={
+                            selectedDiscounts.length === discounts.length &&
+                            discounts.length > 0
+                          }
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
@@ -557,7 +605,10 @@ export default function DiscountManagement() {
                           <Checkbox
                             checked={selectedDiscounts.includes(discount._id!)}
                             onCheckedChange={(checked) =>
-                              handleSelectDiscount(discount._id!, checked as boolean)
+                              handleSelectDiscount(
+                                discount._id!,
+                                checked as boolean
+                              )
                             }
                           />
                         </TableCell>
@@ -571,7 +622,10 @@ export default function DiscountManagement() {
                             </Badge>
                           )}
                           {discountService.isDiscountExpiringSoon(discount) && (
-                            <Badge variant="outline" className="text-xs text-orange-600">
+                            <Badge
+                              variant="outline"
+                              className="text-xs text-orange-600"
+                            >
                               <Clock className="mr-1 h-3 w-3" />
                               Expiring Soon
                             </Badge>
@@ -597,14 +651,23 @@ export default function DiscountManagement() {
                         {discountService.formatDiscountValue(discount)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={discountService.getStatusColor(discount.status!)}>
+                        <Badge
+                          className={discountService.getStatusColor(
+                            discount.status!
+                          )}
+                        >
                           {discount.status}
                         </Badge>
-                        {discount.approvalStatus && discount.approvalStatus !== 'approved' && (
-                          <Badge className={`ml-1 ${discountService.getApprovalStatusColor(discount.approvalStatus)}`}>
-                            {discount.approvalStatus}
-                          </Badge>
-                        )}
+                        {discount.approvalStatus &&
+                          discount.approvalStatus !== "approved" && (
+                            <Badge
+                              className={`ml-1 ${discountService.getApprovalStatusColor(
+                                discount.approvalStatus
+                              )}`}
+                            >
+                              {discount.approvalStatus}
+                            </Badge>
+                          )}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
@@ -625,12 +688,16 @@ export default function DiscountManagement() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(discount)}>
+                            <DropdownMenuItem
+                              onClick={() => handleEdit(discount)}
+                            >
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
                             {canEdit && (
-                              <DropdownMenuItem onClick={() => handleEdit(discount)}>
+                              <DropdownMenuItem
+                                onClick={() => handleEdit(discount)}
+                              >
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
@@ -659,43 +726,60 @@ export default function DiscountManagement() {
               {pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
                   <div className="text-sm text-muted-foreground">
-                    Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{" "}
-                    {Math.min(pagination.currentPage * pagination.limit, pagination.totalItems)} of{" "}
-                    {pagination.totalItems} results
+                    Showing{" "}
+                    {(pagination.currentPage - 1) * pagination.limit + 1} to{" "}
+                    {Math.min(
+                      pagination.currentPage * pagination.limit,
+                      pagination.totalItems
+                    )}{" "}
+                    of {pagination.totalItems} results
                   </div>
                   <div className="flex space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage - 1)
+                      }
                       disabled={pagination.currentPage === 1}
                     >
                       Previous
                     </Button>
-                    {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => {
-                      const page = Math.max(
-                        1,
-                        Math.min(
-                          pagination.currentPage - 2 + i,
-                          pagination.totalPages - 4 + i
-                        )
-                      );
-                      return (
-                        <Button
-                          key={page}
-                          variant={page === pagination.currentPage ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handlePageChange(page)}
-                        >
-                          {page}
-                        </Button>
-                      );
-                    })}
+                    {Array.from(
+                      { length: Math.min(pagination.totalPages, 5) },
+                      (_, i) => {
+                        const page = Math.max(
+                          1,
+                          Math.min(
+                            pagination.currentPage - 2 + i,
+                            pagination.totalPages - 4 + i
+                          )
+                        );
+                        return (
+                          <Button
+                            key={page}
+                            variant={
+                              page === pagination.currentPage
+                                ? "default"
+                                : "outline"
+                            }
+                            size="sm"
+                            onClick={() => handlePageChange(page)}
+                          >
+                            {page}
+                          </Button>
+                        );
+                      }
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(pagination.currentPage + 1)}
-                      disabled={pagination.currentPage === pagination.totalPages}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage + 1)
+                      }
+                      disabled={
+                        pagination.currentPage === pagination.totalPages
+                      }
                     >
                       Next
                     </Button>
@@ -712,13 +796,12 @@ export default function DiscountManagement() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingDiscount ? 'Edit Discount' : 'Create New Discount'}
+              {editingDiscount ? "Edit Discount" : "Create New Discount"}
             </DialogTitle>
             <DialogDescription>
-              {editingDiscount 
-                ? 'Update the discount details below' 
-                : 'Fill in the details to create a new discount code'
-              }
+              {editingDiscount
+                ? "Update the discount details below"
+                : "Fill in the details to create a new discount code"}
             </DialogDescription>
           </DialogHeader>
           <DiscountForm
@@ -735,13 +818,13 @@ export default function DiscountManagement() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the discount code
-              and all associated usage data.
+              This action cannot be undone. This will permanently delete the
+              discount code and all associated usage data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => discountToDelete && handleDelete(discountToDelete)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
@@ -752,18 +835,23 @@ export default function DiscountManagement() {
       </AlertDialog>
 
       {/* Bulk Delete Confirmation Dialog */}
-      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+      <AlertDialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedDiscounts.length} discount(s)?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete {selectedDiscounts.length} discount(s)?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the selected
-              discount codes and all associated usage data.
+              This action cannot be undone. This will permanently delete the
+              selected discount codes and all associated usage data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleBulkDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

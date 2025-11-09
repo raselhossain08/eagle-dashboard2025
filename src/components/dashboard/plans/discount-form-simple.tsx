@@ -5,18 +5,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"; 
-import { useToast } from "@/hooks/use-toast";
-import { discountService, type Discount, type CreateDiscountData } from "@/lib/services/plans/discount.service";interface DiscountFormProps {
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { toast } from "sonner";
+import {
+  discountService,
+  type Discount,
+  type CreateDiscountData,
+} from "@/lib/services/plans/discount.service";
+interface DiscountFormProps {
   discount?: Discount | null;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProps) {
-  const { toast } = useToast();
+export function DiscountForm({
+  discount,
+  onSuccess,
+  onCancel,
+}: DiscountFormProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CreateDiscountData>({
     code: discount?.code || "",
@@ -25,14 +45,20 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
     type: discount?.type || "percentage",
     value: discount?.value || 0,
     currency: discount?.currency || "USD",
-    status: (discount?.status === "expired" || discount?.status === "exhausted") ? "inactive" : discount?.status || "inactive",
+    status:
+      discount?.status === "expired" || discount?.status === "exhausted"
+        ? "inactive"
+        : discount?.status || "inactive",
     isPublic: discount?.isPublic || false,
     constraints: {
       maxTotalUses: discount?.constraints?.maxTotalUses || undefined,
       maxUsesPerUser: discount?.constraints?.maxUsesPerUser || undefined,
-      minimumOrderAmount: discount?.constraints?.minimumOrderAmount || undefined,
-      maximumOrderAmount: discount?.constraints?.maximumOrderAmount || undefined,
-      maximumDiscountAmount: discount?.constraints?.maximumDiscountAmount || undefined,
+      minimumOrderAmount:
+        discount?.constraints?.minimumOrderAmount || undefined,
+      maximumOrderAmount:
+        discount?.constraints?.maximumOrderAmount || undefined,
+      maximumDiscountAmount:
+        discount?.constraints?.maximumDiscountAmount || undefined,
       validFrom: discount?.constraints?.validFrom || undefined,
       validUntil: discount?.constraints?.validUntil || undefined,
       firstTimeUsersOnly: discount?.constraints?.firstTimeUsersOnly || false,
@@ -46,13 +72,11 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
 
     try {
       // Validate discount code format
-      const codeValidation = discountService.validateDiscountCodeFormat(formData.code);
+      const codeValidation = discountService.validateDiscountCodeFormat(
+        formData.code
+      );
       if (!codeValidation.isValid) {
-        toast({
-          title: "Invalid Code",
-          description: codeValidation.errors[0],
-          variant: "destructive",
-        });
+        toast.error(codeValidation.errors[0]);
         setLoading(false);
         return;
       }
@@ -65,24 +89,18 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
       }
 
       if (response.success) {
-        toast({
-          title: "Success",
-          description: `Discount ${discount ? 'updated' : 'created'} successfully`,
-        });
+        toast.success(
+          `Discount ${discount ? "updated" : "created"} successfully`
+        );
         onSuccess();
       } else {
-        toast({
-          title: "Error",
-          description: response.error || `Failed to ${discount ? 'update' : 'create'} discount`,
-          variant: "destructive",
-        });
+        toast.error(
+          response.error ||
+            `Failed to ${discount ? "update" : "create"} discount`
+        );
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: `Failed to ${discount ? 'update' : 'create'} discount`,
-        variant: "destructive",
-      });
+      toast.error(`Failed to ${discount ? "update" : "create"} discount`);
     } finally {
       setLoading(false);
     }
@@ -113,7 +131,12 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
                   placeholder="SAVE20"
                   className="font-mono uppercase"
                   value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      code: e.target.value.toUpperCase(),
+                    })
+                  }
                   required
                 />
                 <Button
@@ -133,7 +156,9 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
                 id="name"
                 placeholder="20% Off Sale"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 required
               />
             </div>
@@ -145,7 +170,9 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
               id="description"
               placeholder="Limited time offer for new customers..."
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
             />
           </div>
 
@@ -154,7 +181,9 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
               <Label htmlFor="type">Discount Type *</Label>
               <Select
                 value={formData.type}
-                onValueChange={(value: any) => setFormData({ ...formData, type: value })}
+                onValueChange={(value: any) =>
+                  setFormData({ ...formData, type: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select discount type" />
@@ -172,7 +201,9 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
               <Label htmlFor="status">Status</Label>
               <Select
                 value={formData.status}
-                onValueChange={(value: any) => setFormData({ ...formData, status: value })}
+                onValueChange={(value: any) =>
+                  setFormData({ ...formData, status: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -187,7 +218,8 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
           </div>
 
           {/* Discount Value */}
-          {(formData.type === "percentage" || formData.type === "fixed_amount") && (
+          {(formData.type === "percentage" ||
+            formData.type === "fixed_amount") && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="value">
@@ -201,7 +233,12 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
                   max={formData.type === "percentage" ? "100" : undefined}
                   step="0.01"
                   value={formData.value || ""}
-                  onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      value: parseFloat(e.target.value) || 0,
+                    })
+                  }
                   required
                 />
               </div>
@@ -211,7 +248,9 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
                   <Label htmlFor="currency">Currency</Label>
                   <Select
                     value={formData.currency}
-                    onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, currency: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -233,9 +272,13 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
             <Switch
               id="isPublic"
               checked={formData.isPublic}
-              onCheckedChange={(checked) => setFormData({ ...formData, isPublic: checked })}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, isPublic: checked })
+              }
             />
-            <Label htmlFor="isPublic">Public Discount (show in public listings)</Label>
+            <Label htmlFor="isPublic">
+              Public Discount (show in public listings)
+            </Label>
           </div>
         </CardContent>
       </Card>
@@ -244,9 +287,7 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
       <Card>
         <CardHeader>
           <CardTitle>Usage Constraints</CardTitle>
-          <CardDescription>
-            Set usage limits and restrictions
-          </CardDescription>
+          <CardDescription>Set usage limits and restrictions</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -263,7 +304,9 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
                     ...formData,
                     constraints: {
                       ...formData.constraints,
-                      maxTotalUses: e.target.value ? parseInt(e.target.value) : undefined,
+                      maxTotalUses: e.target.value
+                        ? parseInt(e.target.value)
+                        : undefined,
                     },
                   })
                 }
@@ -283,7 +326,9 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
                     ...formData,
                     constraints: {
                       ...formData.constraints,
-                      maxUsesPerUser: e.target.value ? parseInt(e.target.value) : undefined,
+                      maxUsesPerUser: e.target.value
+                        ? parseInt(e.target.value)
+                        : undefined,
                     },
                   })
                 }
@@ -306,7 +351,9 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
                     ...formData,
                     constraints: {
                       ...formData.constraints,
-                      minimumOrderAmount: e.target.value ? parseFloat(e.target.value) : undefined,
+                      minimumOrderAmount: e.target.value
+                        ? parseFloat(e.target.value)
+                        : undefined,
                     },
                   })
                 }
@@ -327,7 +374,9 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
                     ...formData,
                     constraints: {
                       ...formData.constraints,
-                      maximumDiscountAmount: e.target.value ? parseFloat(e.target.value) : undefined,
+                      maximumDiscountAmount: e.target.value
+                        ? parseFloat(e.target.value)
+                        : undefined,
                     },
                   })
                 }
@@ -425,10 +474,12 @@ export function DiscountForm({ discount, onSuccess, onCancel }: DiscountFormProp
           {loading ? (
             <>
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-b-transparent" />
-              {discount ? 'Updating...' : 'Creating...'}
+              {discount ? "Updating..." : "Creating..."}
             </>
+          ) : discount ? (
+            "Update Discount"
           ) : (
-            discount ? 'Update Discount' : 'Create Discount'
+            "Create Discount"
           )}
         </Button>
       </div>

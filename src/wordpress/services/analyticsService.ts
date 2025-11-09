@@ -1,4 +1,4 @@
-import { AnalyticsResponse } from '@/types/analytics';
+import { AnalyticsResponse } from '@/wordpress/types/analytics';
 
 export class AnalyticsService {
     private baseUrl = '/api/analytics';

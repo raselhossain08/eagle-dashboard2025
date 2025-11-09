@@ -161,6 +161,19 @@ export interface SystemAnalytics {
 class SystemSettingsService {
   private readonly endpoint = '/system-settings';
 
+  private getToken(): string | null {
+    if (typeof window === 'undefined') return null;
+
+    try {
+      const cookies = document.cookie.split(';');
+      const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('admin_token='));
+      return tokenCookie ? tokenCookie.split('=')[1].trim() : null;
+    } catch (error) {
+      console.error('Error getting token from cookies:', error);
+      return null;
+    }
+  }
+
   async getSettings(): Promise<SystemSettings> {
     return ApiService.get(this.endpoint);
   }
@@ -244,11 +257,16 @@ class SystemSettingsService {
 
   // Backup and Export
   async exportSettings(): Promise<Blob> {
+    const token = this.getToken();
+    const headers: HeadersInit = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}${this.endpoint}/export`, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${ApiService.getToken()}`,
-      },
+      headers,
     });
 
     if (!response.ok) {
