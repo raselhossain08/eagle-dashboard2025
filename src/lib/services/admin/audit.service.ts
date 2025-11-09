@@ -78,6 +78,58 @@ export class AuditService {
     
     return response.data as PaginatedResponse<AuditLog>;
   }
+
+  async exportAuditLogs(params: {
+    format?: 'json' | 'csv';
+    startDate?: string;
+    endDate?: string;
+    userId?: string;
+    action?: string;
+    resource?: string;
+    limit?: number;
+    twoFactorToken: string;
+  }): Promise<Blob> {
+    const { twoFactorToken, ...queryParams } = params;
+    
+    // We need to access the underlying axios instance for custom headers
+    const client = (apiClient as any).client;
+    const token = typeof window !== 'undefined' ? 
+      document.cookie.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1] : 
+      null;
+    
+    const response = await client.get('/rbac/audit/export', { 
+      params: queryParams,
+      responseType: 'blob',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'X-Two-Factor-Token': twoFactorToken,
+      }
+    });
+    return response.data as Blob;
+  }
+
+  async purgeAuditLogs(params: {
+    olderThanDays?: number;
+    dryRun?: boolean;
+    keepCriticalEvents?: boolean;
+    twoFactorToken: string;
+  }): Promise<any> {
+    const { twoFactorToken, ...requestData } = params;
+    
+    // We need to access the underlying axios instance for custom headers
+    const client = (apiClient as any).client;
+    const token = typeof window !== 'undefined' ? 
+      document.cookie.split(';').find(c => c.trim().startsWith('admin_token='))?.split('=')[1] : 
+      null;
+    
+    const response = await client.post('/rbac/audit/purge', requestData, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'X-Two-Factor-Token': twoFactorToken,
+      }
+    });
+    return response.data;
+  }
 }
 
 export const auditService = new AuditService()

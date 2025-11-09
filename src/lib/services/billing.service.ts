@@ -8,27 +8,75 @@ import {
     ApiResponse
 } from '@/lib/types/billing';
 import { TaxCalculationRequest } from '@/lib/types/tax';
+import ApiService from './shared/api.service';
 
 class BillingService {
-    private baseUrl = '/api/billing';
-    private headers: HeadersInit = {
-        'Content-Type': 'application/json',
-    };
+    private readonly basePath = '/billing';
+    private cache = new Map<string, { data: any; timestamp: number }>();
+    private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
-    private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            ...options,
-            headers: {
-                ...this.headers,
-                ...options.headers,
-            },
-        });
+    // Helper method to generate cache key
+    private getCacheKey(endpoint: string, params?: any): string {
+        const paramString = params ? JSON.stringify(params) : '';
+        return `${endpoint}${paramString}`;
+    }
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+    // Helper method to check if cached data is still valid
+    private isCacheValid(timestamp: number): boolean {
+        return Date.now() - timestamp < this.CACHE_DURATION;
+    }
+
+    // Helper method to wrap API responses in consistent format with caching
+    private async wrapResponse<T>(apiCall: Promise<T>, cacheKey?: string): Promise<ApiResponse<T>> {
+        try {
+            // Check cache first if cacheKey is provided
+            if (cacheKey) {
+                const cached = this.cache.get(cacheKey);
+                if (cached && this.isCacheValid(cached.timestamp)) {
+                    console.log(`🎯 Cache hit for ${cacheKey}`);
+                    return {
+                        success: true,
+                        data: cached.data
+                    };
+                }
+            }
+
+            const data = await apiCall;
+            
+            // Store in cache if cacheKey is provided
+            if (cacheKey) {
+                this.cache.set(cacheKey, {
+                    data,
+                    timestamp: Date.now()
+                });
+                console.log(`💾 Cached result for ${cacheKey}`);
+            }
+
+            return {
+                success: true,
+                data
+            };
+        } catch (error) {
+            console.error('Billing service error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+                message: error instanceof Error ? error.message : 'Unknown error occurred'
+            };
         }
+    }
 
-        return response.json();
+    // Method to clear cache (useful for force refresh)
+    public clearCache(): void {
+        this.cache.clear();
+        console.log('🗑️ Billing service cache cleared');
+    }
+
+    // Method to clear specific cache entry
+    public clearCacheEntry(endpoint: string, params?: any): void {
+        const cacheKey = this.getCacheKey(endpoint, params);
+        this.cache.delete(cacheKey);
+        console.log(`🗑️ Cleared cache for ${cacheKey}`);
     }
 
     // Tax Rates
@@ -47,53 +95,52 @@ class BillingService {
             }
         });
 
-        return this.request<TaxRate[]>(`/tax-rates?${queryParams}`);
+        return this.wrapResponse(
+            ApiService.get<TaxRate[]>(`${this.basePath}/tax-rates?${queryParams}`)
+        );
     }
 
     async createTaxRate(data: Partial<TaxRate>): Promise<ApiResponse<TaxRate>> {
-        return this.request<TaxRate>('/tax-rates', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+        return this.wrapResponse(
+            ApiService.post<TaxRate>(`${this.basePath}/tax-rates`, data)
+        );
     }
 
     async updateTaxRate(id: string, data: Partial<TaxRate>): Promise<ApiResponse<TaxRate>> {
-        return this.request<TaxRate>(`/tax-rates/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        });
+        return this.wrapResponse(
+            ApiService.put<TaxRate>(`${this.basePath}/tax-rates/${id}`, data)
+        );
     }
 
     async deleteTaxRate(id: string): Promise<ApiResponse<void>> {
-        return this.request<void>(`/tax-rates/${id}`, {
-            method: 'DELETE',
-        });
+        return this.wrapResponse(
+            ApiService.delete<void>(`${this.basePath}/tax-rates/${id}`)
+        );
     }
+
     async handlePayPalWebhook(data: any): Promise<ApiResponse<any>> {
-        return this.request('/webhooks/paypal', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+        return this.wrapResponse(
+            ApiService.post<any>(`${this.basePath}/webhooks/paypal`, data)
+        );
     }
+
     // Bulk operations for invoices
     async bulkUpdateInvoices(ids: string[], updates: Partial<Invoice>): Promise<ApiResponse<void>> {
-        return this.request('/invoices/bulk-update', {
-            method: 'POST',
-            body: JSON.stringify({ ids, updates }),
-        });
+        return this.wrapResponse(
+            ApiService.post<void>(`${this.basePath}/invoices/bulk-update`, { ids, updates })
+        );
     }
+
     async validateTaxRate(data: Partial<TaxRate>): Promise<ApiResponse<{ valid: boolean; message?: string }>> {
-        return this.request('/tax-rates/validate', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+        return this.wrapResponse(
+            ApiService.post<{ valid: boolean; message?: string }>(`${this.basePath}/tax-rates/validate`, data)
+        );
     }
     // Tax Calculation
     async calculateTax(data: TaxCalculationRequest): Promise<ApiResponse<TaxCalculationResponse>> {
-        return this.request<TaxCalculationResponse>('/calculate-tax', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+        return this.wrapResponse(
+            ApiService.post<TaxCalculationResponse>(`${this.basePath}/calculate-tax`, data)
+        );
     }
 
     async getApplicableTaxRates(params: {
@@ -109,10 +156,12 @@ class BillingService {
             if (value) queryParams.append(key, value.toString());
         });
 
-        return this.request<TaxRate[]>(`/applicable-tax-rates?${queryParams}`);
+        return this.wrapResponse(
+            ApiService.get<TaxRate[]>(`${this.basePath}/applicable-tax-rates?${queryParams}`)
+        );
     }
 
-    // Invoices
+    // Invoices (with caching for list views)
     async getInvoices(params: {
         page: number;
         limit: number;
@@ -126,32 +175,43 @@ class BillingService {
             if (value) queryParams.append(key, value.toString());
         });
 
-        return this.request<Invoice[]>(`/invoices?${queryParams}`);
+        const cacheKey = this.getCacheKey('/invoices', params);
+        return this.wrapResponse(
+            ApiService.get<Invoice[]>(`${this.basePath}/invoices?${queryParams}`),
+            cacheKey
+        );
     }
 
     async getInvoice(id: string): Promise<ApiResponse<Invoice>> {
-        return this.request<Invoice>(`/invoices/${id}`);
+        return this.wrapResponse(
+            ApiService.get<Invoice>(`${this.basePath}/invoices/${id}`)
+        );
     }
 
     async createInvoice(data: Partial<Invoice>): Promise<ApiResponse<Invoice>> {
-        return this.request<Invoice>('/invoices', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+        return this.wrapResponse(
+            ApiService.post<Invoice>(`${this.basePath}/invoices`, data)
+        );
     }
 
     async updateInvoice(id: string, data: Partial<Invoice>): Promise<ApiResponse<Invoice>> {
-        return this.request<Invoice>(`/invoices/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        });
+        return this.wrapResponse(
+            ApiService.put<Invoice>(`${this.basePath}/invoices/${id}`, data)
+        );
     }
 
     async voidInvoice(id: string, reason: string): Promise<ApiResponse<Invoice>> {
-        return this.request<Invoice>(`/invoices/${id}/void`, {
-            method: 'POST',
-            body: JSON.stringify({ reason }),
-        });
+        const result = await this.wrapResponse(
+            ApiService.post<Invoice>(`${this.basePath}/invoices/${id}/void`, { reason })
+        );
+        
+        // Clear invoice cache when invoice is modified
+        if (result.success) {
+            this.clearCacheEntry('/invoices');
+            this.clearCacheEntry('/dashboard');
+        }
+        
+        return result;
     }
 
     async markInvoicePaid(id: string, data: {
@@ -160,17 +220,15 @@ class BillingService {
         paymentMethod: string;
         transactionId: string;
     }): Promise<ApiResponse<Invoice>> {
-        return this.request<Invoice>(`/invoices/${id}/mark-paid`, {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+        return this.wrapResponse(
+            ApiService.post<Invoice>(`${this.basePath}/invoices/${id}/mark-paid`, data)
+        );
     }
 
     async generateInvoicePdf(id: string, templateId?: string): Promise<ApiResponse<{ pdfUrl: string }>> {
-        return this.request<{ pdfUrl: string }>(`/invoices/${id}/generate-pdf`, {
-            method: 'POST',
-            body: JSON.stringify({ templateId }),
-        });
+        return this.wrapResponse(
+            ApiService.post<{ pdfUrl: string }>(`${this.basePath}/invoices/${id}/generate-pdf`, { templateId })
+        );
     }
 
     async sendInvoiceEmail(id: string, data: {
@@ -178,16 +236,15 @@ class BillingService {
         cc?: string[];
         subject?: string;
     }): Promise<ApiResponse<void>> {
-        return this.request<void>(`/invoices/${id}/send-email`, {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+        return this.wrapResponse(
+            ApiService.post<void>(`${this.basePath}/invoices/${id}/send-email`, data)
+        );
     }
 
     async resendInvoiceEmail(id: string): Promise<ApiResponse<void>> {
-        return this.request<void>(`/invoices/${id}/resend-email`, {
-            method: 'POST',
-        });
+        return this.wrapResponse(
+            ApiService.post<void>(`${this.basePath}/invoices/${id}/resend-email`)
+        );
     }
 
     // Receipts
@@ -202,18 +259,24 @@ class BillingService {
             if (value) queryParams.append(key, value.toString());
         });
 
-        return this.request<Receipt[]>(`/receipts?${queryParams}`);
+        return this.wrapResponse(
+            ApiService.get<Receipt[]>(`${this.basePath}/receipts?${queryParams}`)
+        );
     }
 
     async resendReceiptEmail(id: string): Promise<ApiResponse<void>> {
-        return this.request<void>(`/receipts/${id}/resend-email`, {
-            method: 'POST',
-        });
+        return this.wrapResponse(
+            ApiService.post<void>(`${this.basePath}/receipts/${id}/resend-email`)
+        );
     }
 
-    // Dashboard & Analytics
+    // Dashboard & Analytics (with caching)
     async getDashboard(period: string = '30d', currency: string = 'USD'): Promise<ApiResponse<BillingDashboard>> {
-        return this.request<BillingDashboard>(`/dashboard?period=${period}&currency=${currency}`);
+        const cacheKey = this.getCacheKey('/dashboard', { period, currency });
+        return this.wrapResponse(
+            ApiService.get<BillingDashboard>(`${this.basePath}/dashboard?period=${period}&currency=${currency}`),
+            cacheKey
+        );
     }
 
     async exportData(params: {
@@ -229,12 +292,50 @@ class BillingService {
             if (value) queryParams.append(key, value.toString());
         });
 
-        return this.request<any>(`/export?${queryParams}`);
+        return this.wrapResponse(
+            ApiService.get<any>(`${this.basePath}/export?${queryParams}`)
+        );
     }
 
     // Currencies
     async getCurrencies(): Promise<ApiResponse<Currency[]>> {
-        return this.request<Currency[]>('/currencies');
+        return this.wrapResponse(
+            ApiService.get<Currency[]>(`${this.basePath}/currencies`)
+        );
+    }
+
+    async updateCurrencyStatus(currencyCode: string, enabled: boolean): Promise<ApiResponse> {
+        return this.wrapResponse(
+            ApiService.put(`${this.basePath}/currencies/${currencyCode}/status`, { enabled })
+        );
+    }
+
+    async updateExchangeRate(currencyCode: string, rate: number): Promise<ApiResponse> {
+        return this.wrapResponse(
+            ApiService.put(`${this.basePath}/currencies/${currencyCode}/rate`, { rate })
+        );
+    }
+
+    async refreshExchangeRates(): Promise<ApiResponse> {
+        return this.wrapResponse(
+            ApiService.post(`${this.basePath}/currencies/refresh-rates`)
+        );
+    }
+
+    async getCurrencyConfiguration(): Promise<ApiResponse> {
+        return this.wrapResponse(
+            ApiService.get(`${this.basePath}/currencies/configuration`)
+        );
+    }
+
+    async updateCurrencyConfiguration(config: {
+        primaryCurrency: string;
+        autoRefresh: boolean;
+        refreshInterval: string;
+    }): Promise<ApiResponse> {
+        return this.wrapResponse(
+            ApiService.put(`${this.basePath}/currencies/configuration`, config)
+        );
     }
 }
 

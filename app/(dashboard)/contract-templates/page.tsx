@@ -68,6 +68,11 @@ const ContractTemplatesManagement: React.FC = () => {
   const [viewingTemplate, setViewingTemplate] =
     useState<ContractTemplate | null>(null);
 
+  // Utility function to get template ID consistently
+  const getTemplateId = (template: ContractTemplate): string => {
+    return template.id || template._id || template.templateId;
+  };
+
   // Load templates
   const loadTemplates = async () => {
     try {
@@ -145,7 +150,7 @@ const ContractTemplatesManagement: React.FC = () => {
 
       // Fetch the complete template data
       const response = await ContractService.getContractTemplateById(
-        template.id || template.templateId || template._id
+        getTemplateId(template)
       );
 
       if (response.success && response.data) {
@@ -168,7 +173,7 @@ const ContractTemplatesManagement: React.FC = () => {
 
       // Fetch the complete template data for editing
       const response = await ContractService.getContractTemplateById(
-        template.id || template.templateId || template._id
+        getTemplateId(template)
       );
 
       if (response.success && response.data) {
@@ -207,9 +212,7 @@ const ContractTemplatesManagement: React.FC = () => {
 
       if (editingTemplate) {
         const response = await ContractService.updateContractTemplate(
-          editingTemplate.id ||
-          editingTemplate.templateId ||
-          editingTemplate._id,
+          getTemplateId(editingTemplate),
           data
         );
         if (response.success) {
@@ -273,9 +276,12 @@ const ContractTemplatesManagement: React.FC = () => {
   };
 
   const handleCloneTemplate = async (template: ContractTemplate) => {
-    const newName = prompt('Enter name for the cloned template:', `${template.name} (Copy)`);
+    const newName = prompt(
+      "Enter name for the cloned template:",
+      `${template.name} (Copy)`
+    );
     if (!newName?.trim()) {
-      toast.error('Template name is required');
+      toast.error("Template name is required");
       return;
     }
 
@@ -284,7 +290,7 @@ const ContractTemplatesManagement: React.FC = () => {
 
       // Fetch complete template data
       const response = await ContractService.getContractTemplateById(
-        template.id || template.templateId || template._id
+        getTemplateId(template)
       );
 
       if (response.success && response.data) {
@@ -294,8 +300,8 @@ const ContractTemplatesManagement: React.FC = () => {
         const clonedData: CreateContractTemplateRequest = {
           name: newName.trim(),
           category: templateData.category,
-          locale: templateData.locale || 'en-US',
-          status: 'draft', // Always start as draft
+          locale: templateData.locale || "en-US",
+          status: "draft", // Always start as draft
           content: {
             body: templateData.content.body,
             htmlBody: templateData.content.htmlBody,
@@ -311,28 +317,33 @@ const ContractTemplatesManagement: React.FC = () => {
           },
           legal: {
             requiresSignature: templateData.legal?.requiresSignature ?? true,
-            signatureType: templateData.legal?.signatureType || 'electronic',
+            signatureType: templateData.legal?.signatureType || "electronic",
             witnessRequired: templateData.legal?.witnessRequired ?? false,
-            notarizationRequired: templateData.legal?.notarizationRequired ?? false,
+            notarizationRequired:
+              templateData.legal?.notarizationRequired ?? false,
             retentionPeriod: templateData.legal?.retentionPeriod,
             complianceNotes: templateData.legal?.complianceNotes,
           },
         };
 
-        const createResponse = await ContractService.createContractTemplate(clonedData);
+        const createResponse = await ContractService.createContractTemplate(
+          clonedData
+        );
 
         if (createResponse.success) {
           toast.success(`Template "${newName}" created successfully`);
           loadTemplates();
         } else {
-          throw new Error(createResponse.error || 'Failed to clone template');
+          throw new Error(createResponse.error || "Failed to clone template");
         }
       } else {
-        throw new Error(response.error || 'Failed to load template for cloning');
+        throw new Error(
+          response.error || "Failed to load template for cloning"
+        );
       }
     } catch (error: any) {
-      console.error('Clone template error:', error);
-      toast.error(error.message || 'Failed to clone template');
+      console.error("Clone template error:", error);
+      toast.error(error.message || "Failed to clone template");
     } finally {
       setFormLoading(false);
     }
@@ -342,14 +353,14 @@ const ContractTemplatesManagement: React.FC = () => {
     // First confirmation with warning
     const confirmed = window.confirm(
       `⚠️ WARNING: Delete Template\n\n` +
-      `Template: "${template.name}"\n` +
-      `Category: ${template.category}\n` +
-      `Status: ${template.status}\n\n` +
-      `This action will:\n` +
-      `• Permanently delete this template\n` +
-      `• Remove it from all associated contracts\n` +
-      `• Cannot be undone\n\n` +
-      `Are you absolutely sure you want to delete this template?`
+        `Template: "${template.name}"\n` +
+        `Category: ${template.category}\n` +
+        `Status: ${template.status}\n\n` +
+        `This action will:\n` +
+        `• Permanently delete this template\n` +
+        `• Remove it from all associated contracts\n` +
+        `• Cannot be undone\n\n` +
+        `Are you absolutely sure you want to delete this template?`
     );
 
     if (!confirmed) return;
@@ -357,9 +368,9 @@ const ContractTemplatesManagement: React.FC = () => {
     // Second confirmation (safety measure)
     const finalConfirm = window.confirm(
       `FINAL CONFIRMATION\n\n` +
-      `Type the template name to confirm deletion:\n` +
-      `Expected: "${template.name}"\n\n` +
-      `Click OK to proceed with deletion.`
+        `Type the template name to confirm deletion:\n` +
+        `Expected: "${template.name}"\n\n` +
+        `Click OK to proceed with deletion.`
     );
 
     if (!finalConfirm) return;
@@ -368,27 +379,34 @@ const ContractTemplatesManagement: React.FC = () => {
       setFormLoading(true);
 
       const response = await ContractService.deleteContractTemplate(
-        template.id || template.templateId || template._id
+        getTemplateId(template)
       );
 
       if (response.success) {
         toast.success(`Template "${template.name}" deleted successfully`);
         loadTemplates();
       } else {
-        throw new Error(response.error || 'Failed to delete template');
+        throw new Error(response.error || "Failed to delete template");
       }
     } catch (error: any) {
-      console.error('Delete template error:', error);
+      console.error("Delete template error:", error);
 
       // Provide user-friendly error messages
-      let errorMessage = 'Failed to delete template';
+      let errorMessage = "Failed to delete template";
 
-      if (error.message?.includes('in use') || error.message?.includes('associated')) {
-        errorMessage = 'Cannot delete template: It is being used by existing contracts';
-      } else if (error.message?.includes('permission') || error.message?.includes('authorized')) {
-        errorMessage = 'You do not have permission to delete this template';
-      } else if (error.message?.includes('not found')) {
-        errorMessage = 'Template not found. It may have been already deleted.';
+      if (
+        error.message?.includes("in use") ||
+        error.message?.includes("associated")
+      ) {
+        errorMessage =
+          "Cannot delete template: It is being used by existing contracts";
+      } else if (
+        error.message?.includes("permission") ||
+        error.message?.includes("authorized")
+      ) {
+        errorMessage = "You do not have permission to delete this template";
+      } else if (error.message?.includes("not found")) {
+        errorMessage = "Template not found. It may have been already deleted.";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -485,23 +503,29 @@ const ContractTemplatesManagement: React.FC = () => {
     const matchesSearch =
       searchTerm === "" ||
       template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      template.templateId.toLowerCase().includes(searchTerm.toLowerCase());
+      (template.templateId &&
+        template.templateId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (template.id &&
+        template.id.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    // Plan filtering logic
-    // Note: This assumes templates have a 'config.applicablePlans' field
-    // If backend doesn't support this yet, this will show all templates
-    const matchesPlan = selectedPlan === "all" || (() => {
-      // Check if template has applicable plans configuration
-      const templateConfig = (template as any).config;
-      if (!templateConfig?.applicablePlans) {
-        // If no plan configuration, show in "all" only
-        return selectedPlan === "all";
-      }
+    // Plan filtering logic - updated to be more robust
+    const matchesPlan =
+      selectedPlan === "all" ||
+      (() => {
+        // Check if template has applicable plans configuration
+        const templateConfig = (template as any).config;
+        if (templateConfig?.applicablePlans) {
+          const applicablePlans = templateConfig.applicablePlans as string[];
+          // If template has specific plans, check if selected plan is included
+          if (applicablePlans.length > 0) {
+            return applicablePlans.includes(selectedPlan);
+          }
+        }
 
-      // Check if selected plan is in the applicable plans
-      const applicablePlans = templateConfig.applicablePlans as string[];
-      return applicablePlans.includes(selectedPlan) || applicablePlans.length === 0;
-    })();
+        // If no plan configuration or empty applicablePlans, show all templates for now
+        // This ensures backward compatibility while the backend is being updated
+        return true;
+      })();
 
     return matchesSearch && matchesPlan;
   });
@@ -591,9 +615,10 @@ const ContractTemplatesManagement: React.FC = () => {
             <div className="text-2xl font-bold">{plans.length}</div>
             <p className="text-xs text-muted-foreground">
               {selectedPlan !== "all"
-                ? `Filtered by ${plans.find((p) => p._id === selectedPlan)?.displayName ||
-                "Unknown"
-                }`
+                ? `Filtered by ${
+                    plans.find((p) => p._id === selectedPlan)?.displayName ||
+                    "Unknown"
+                  }`
                 : "All available plans"}
             </p>
           </CardContent>
@@ -733,26 +758,37 @@ const ContractTemplatesManagement: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {filteredTemplates.map((template) => (
-                  <TableRow
-                    key={template.id || template.templateId || template._id}
-                  >
+                  <TableRow key={getTemplateId(template)}>
                     <TableCell className="font-medium">
                       {template.name}
                     </TableCell>
                     <TableCell>
                       <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                        {template.templateId}
+                        {template.templateId ||
+                          template.id ||
+                          getTemplateId(template)}
                       </code>
                     </TableCell>
                     <TableCell>{getCategoryBadge(template.category)}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">v{template.versionString}</Badge>
+                      <Badge variant="outline">
+                        v
+                        {template.versionString ||
+                          (typeof template.version === "string"
+                            ? template.version
+                            : typeof template.version === "object" &&
+                              template.version
+                            ? `${template.version.major}.${template.version.minor}.${template.version.patch}`
+                            : "1.0.0")}
+                      </Badge>
                     </TableCell>
                     <TableCell>{getStatusBadge(template.status)}</TableCell>
-                    <TableCell>{template.language}</TableCell>
+                    <TableCell>
+                      {template.language || template.locale || "en-US"}
+                    </TableCell>
                     <TableCell>
                       {selectedPlan !== "all" &&
-                        plans.find((p) => p._id === selectedPlan) ? (
+                      plans.find((p) => p._id === selectedPlan) ? (
                         getPlanBadge(selectedPlan)
                       ) : (
                         <Badge
@@ -765,7 +801,11 @@ const ContractTemplatesManagement: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {new Date(template.updatedAt).toLocaleDateString()}
+                      {template.updatedAt
+                        ? new Date(template.updatedAt).toLocaleDateString()
+                        : template.createdAt
+                        ? new Date(template.createdAt).toLocaleDateString()
+                        : "Unknown"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

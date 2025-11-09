@@ -273,7 +273,11 @@ export interface CreateContractTemplateRequest {
     htmlBody?: string;
     variables: ContractTemplate['content']['variables'];
   };
-  metadata?: Partial<ContractTemplate['metadata']>;
+  metadata?: Partial<ContractTemplate['metadata']> & {
+    customFields?: {
+      associatedPlanId?: string;
+    };
+  };
   legal?: Partial<ContractTemplate['legal']>;
 }
 
@@ -482,7 +486,16 @@ export interface ApiResponse<T = any> {
 
 class ContractService {
   private readonly templatesEndpoint = '/contract-templates';
-  private readonly contractsEndpoint = '/contracts';
+  private readonly contractsEndpoint = '/contracts/enhanced';
+
+  /**
+   * Get the correct template ID for API calls
+   * Backend expects either the custom 'id' field or MongoDB '_id'
+   */
+  private getTemplateId(template: ContractTemplate): string {
+    // Prefer the custom 'id' field, fall back to '_id', then 'templateId'
+    return template.id || template._id || template.templateId;
+  }
 
   // =================== CONTRACT TEMPLATES ===================
 
@@ -564,6 +577,10 @@ class ContractService {
     const locale = templateData.locale || 'en-US';
     const language = locale.split('-')[0];
 
+    // Extract plan association from metadata
+    const associatedPlanId = templateData.metadata?.customFields?.associatedPlanId;
+    const applicablePlans = associatedPlanId && associatedPlanId !== 'none' ? [associatedPlanId] : [];
+
     // Transform variables to placeholders format
     const placeholders = (templateData.content.variables || []).map(variable => ({
       key: variable.name || `var_${Math.random().toString(36).substr(2, 8)}`,
@@ -601,7 +618,7 @@ class ContractService {
       },
       placeholders: placeholders,
       config: {
-        applicablePlans: [],
+        applicablePlans: applicablePlans,
         applicableRegions: [],
         signingRequirements: {
           requireSignature: templateData.legal?.requiresSignature ?? true,
@@ -754,7 +771,7 @@ class ContractService {
    */
   async getContractById(id: string): Promise<ApiResponse<Contract>> {
     try {
-      const response = await ApiService.get<ApiResponse<Contract>>(`${this.contractsEndpoint}/new/${id}`);
+      const response = await ApiService.get<ApiResponse<Contract>>(`${this.contractsEndpoint}/contracts/${id}`);
       return response;
     } catch (error) {
       console.error('Get contract by ID error:', error);
@@ -783,7 +800,7 @@ class ContractService {
         });
       }
 
-      const response = await ApiService.postFormData<ApiResponse<Contract>>(`${this.contractsEndpoint}/new`, formData);
+      const response = await ApiService.postFormData<ApiResponse<Contract>>(`${this.contractsEndpoint}/contracts`, formData);
       return response;
     } catch (error) {
       console.error('Create contract error:', error);
@@ -797,7 +814,7 @@ class ContractService {
   async updateContract(id: string, contractData: UpdateContractRequest): Promise<ApiResponse<Contract>> {
     try {
       // For simplicity, use regular PUT request since update might not need file uploads
-      const response = await ApiService.put<ApiResponse<Contract>>(`${this.contractsEndpoint}/new/${id}`, contractData);
+      const response = await ApiService.put<ApiResponse<Contract>>(`${this.contractsEndpoint}/contracts/${id}`, contractData);
       return response;
     } catch (error) {
       console.error('Update contract error:', error);
@@ -810,7 +827,7 @@ class ContractService {
    */
   async deleteContract(id: string): Promise<ApiResponse> {
     try {
-      const response = await ApiService.delete<ApiResponse>(`${this.contractsEndpoint}/new/${id}`);
+      const response = await ApiService.delete<ApiResponse>(`${this.contractsEndpoint}/contracts/${id}`);
       return response;
     } catch (error) {
       console.error('Delete contract error:', error);
@@ -826,7 +843,7 @@ class ContractService {
   async cancelContract(id: string, reason: string): Promise<ApiResponse<Contract>> {
     try {
       // This endpoint might not exist in backend, implement as needed
-      const response = await ApiService.put<ApiResponse<Contract>>(`${this.contractsEndpoint}/${id}/cancel`, { reason });
+      const response = await ApiService.post<ApiResponse<Contract>>(`${this.contractsEndpoint}/contracts/${id}/cancel`, { reason });
       return response;
     } catch (error) {
       console.error('Cancel contract error:', error);
@@ -1053,7 +1070,7 @@ class ContractService {
    */
   async getSignatureStatus(contractId: string): Promise<ApiResponse<SignatureStatus>> {
     try {
-      const response = await ApiService.get<ApiResponse<SignatureStatus>>(`${this.contractsEndpoint}/${contractId}/signature-status`);
+      const response = await ApiService.get<ApiResponse<SignatureStatus>>(`${this.contractsEndpoint}/contracts/${contractId}/signature-status`);
       return response;
     } catch (error) {
       console.error('Get signature status error:', error);
@@ -1067,7 +1084,7 @@ class ContractService {
   async sendForSignature(contractId: string, recipients?: SignatureRecipient[]): Promise<ApiResponse<Contract>> {
     try {
       const payload = recipients ? { recipients } : {};
-      const response = await ApiService.post<ApiResponse<Contract>>(`${this.contractsEndpoint}/${contractId}/send-for-signature`, payload);
+      const response = await ApiService.post<ApiResponse<Contract>>(`${this.contractsEndpoint}/contracts/${contractId}/send-for-signature`, payload);
       return response;
     } catch (error) {
       console.error('Send for signature error:', error);
@@ -1121,7 +1138,7 @@ class ContractService {
   async sendSignatureReminder(contractId: string, partyType: string, partyIndex?: number): Promise<ApiResponse<boolean>> {
     try {
       const payload = { partyType, partyIndex };
-      const response = await ApiService.post<ApiResponse<boolean>>(`${this.contractsEndpoint}/${contractId}/signature-reminder`, payload);
+      const response = await ApiService.post<ApiResponse<boolean>>(`${this.contractsEndpoint}/contracts/${contractId}/signature-reminder`, payload);
       return response;
     } catch (error) {
       console.error('Send signature reminder error:', error);
