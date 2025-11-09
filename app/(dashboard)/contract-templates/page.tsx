@@ -12,6 +12,7 @@ import {
   Layout,
   Search,
   CreditCard,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Card,
@@ -38,6 +39,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ContractService } from "@/lib/services";
 import { PlanService } from "@/lib/services/plans";
 import TemplateCreationDialog from "@/components/dashboard/contracts/template-creation-dialog";
@@ -63,9 +74,12 @@ const ContractTemplatesManagement: React.FC = () => {
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] =
     useState<ContractTemplate | null>(null);
   const [viewingTemplate, setViewingTemplate] =
+    useState<ContractTemplate | null>(null);
+  const [deletingTemplate, setDeletingTemplate] =
     useState<ContractTemplate | null>(null);
 
   // Utility function to get template ID consistently
@@ -210,12 +224,31 @@ const ContractTemplatesManagement: React.FC = () => {
         throw new Error("Template content is required");
       }
 
+      // Debug: Log the data being sent to backend
+      console.log("📤 Submitting template data:", {
+        name: data.name,
+        category: data.category,
+        status: data.status,
+        locale: data.locale,
+        contentBodyLength: data.content?.body?.length,
+        contentHtmlLength: data.content?.htmlBody?.length,
+        variablesCount: data.content?.variables?.length,
+        hasMetadata: !!data.metadata,
+        metadataKeys: data.metadata ? Object.keys(data.metadata) : [],
+        hasLegal: !!data.legal,
+        legalKeys: data.legal ? Object.keys(data.legal) : [],
+      });
+      console.log("📄 Full template data:", JSON.stringify(data, null, 2));
+
       if (editingTemplate) {
         const response = await ContractService.updateContractTemplate(
-          getTemplateId(editingTemplate),
+          editingTemplate.id ||
+          editingTemplate.templateId ||
+          editingTemplate._id,
           data
         );
         if (response.success) {
+          console.log("✅ Template updated successfully:", response.data);
           toast.success("Template updated successfully");
           loadTemplates();
           setDialogOpen(false);
@@ -226,6 +259,7 @@ const ContractTemplatesManagement: React.FC = () => {
       } else {
         const response = await ContractService.createContractTemplate(data);
         if (response.success) {
+          console.log("✅ Template created successfully:", response.data);
           toast.success("Template created successfully");
           loadTemplates();
           setDialogOpen(false);
@@ -234,7 +268,7 @@ const ContractTemplatesManagement: React.FC = () => {
         }
       }
     } catch (error: any) {
-      console.error("Template submit error:", error);
+      console.error("❌ Template submit error:", error);
 
       // Provide user-friendly error messages
       let errorMessage = "Failed to save template";
@@ -353,14 +387,14 @@ const ContractTemplatesManagement: React.FC = () => {
     // First confirmation with warning
     const confirmed = window.confirm(
       `⚠️ WARNING: Delete Template\n\n` +
-        `Template: "${template.name}"\n` +
-        `Category: ${template.category}\n` +
-        `Status: ${template.status}\n\n` +
-        `This action will:\n` +
-        `• Permanently delete this template\n` +
-        `• Remove it from all associated contracts\n` +
-        `• Cannot be undone\n\n` +
-        `Are you absolutely sure you want to delete this template?`
+      `Template: "${template.name}"\n` +
+      `Category: ${template.category}\n` +
+      `Status: ${template.status}\n\n` +
+      `This action will:\n` +
+      `• Permanently delete this template\n` +
+      `• Remove it from all associated contracts\n` +
+      `• Cannot be undone\n\n` +
+      `Are you absolutely sure you want to delete this template?`
     );
 
     if (!confirmed) return;
@@ -368,9 +402,9 @@ const ContractTemplatesManagement: React.FC = () => {
     // Second confirmation (safety measure)
     const finalConfirm = window.confirm(
       `FINAL CONFIRMATION\n\n` +
-        `Type the template name to confirm deletion:\n` +
-        `Expected: "${template.name}"\n\n` +
-        `Click OK to proceed with deletion.`
+      `Type the template name to confirm deletion:\n` +
+      `Expected: "${template.name}"\n\n` +
+      `Click OK to proceed with deletion.`
     );
 
     if (!finalConfirm) return;
@@ -379,12 +413,16 @@ const ContractTemplatesManagement: React.FC = () => {
       setFormLoading(true);
 
       const response = await ContractService.deleteContractTemplate(
-        getTemplateId(template)
+        template.id || template.templateId || template._id
       );
 
       if (response.success) {
-        toast.success(`Template "${template.name}" deleted successfully`);
+        toast.success(
+          `Template "${deletingTemplate.name}" deleted successfully`
+        );
         loadTemplates();
+        setDeleteDialogOpen(false);
+        setDeletingTemplate(null);
       } else {
         throw new Error(response.error || "Failed to delete template");
       }
@@ -503,29 +541,23 @@ const ContractTemplatesManagement: React.FC = () => {
     const matchesSearch =
       searchTerm === "" ||
       template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (template.templateId &&
-        template.templateId.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (template.id &&
-        template.id.toLowerCase().includes(searchTerm.toLowerCase()));
+      template.templateId.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Plan filtering logic - updated to be more robust
-    const matchesPlan =
-      selectedPlan === "all" ||
-      (() => {
-        // Check if template has applicable plans configuration
-        const templateConfig = (template as any).config;
-        if (templateConfig?.applicablePlans) {
-          const applicablePlans = templateConfig.applicablePlans as string[];
-          // If template has specific plans, check if selected plan is included
-          if (applicablePlans.length > 0) {
-            return applicablePlans.includes(selectedPlan);
-          }
-        }
+    // Plan filtering logic
+    // Note: This assumes templates have a 'config.applicablePlans' field
+    // If backend doesn't support this yet, this will show all templates
+    const matchesPlan = selectedPlan === "all" || (() => {
+      // Check if template has applicable plans configuration
+      const templateConfig = (template as any).config;
+      if (!templateConfig?.applicablePlans) {
+        // If no plan configuration, show in "all" only
+        return selectedPlan === "all";
+      }
 
-        // If no plan configuration or empty applicablePlans, show all templates for now
-        // This ensures backward compatibility while the backend is being updated
-        return true;
-      })();
+      // Check if selected plan is in the applicable plans
+      const applicablePlans = templateConfig.applicablePlans as string[];
+      return applicablePlans.includes(selectedPlan) || applicablePlans.length === 0;
+    })();
 
     return matchesSearch && matchesPlan;
   });
@@ -764,31 +796,18 @@ const ContractTemplatesManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                        {template.templateId ||
-                          template.id ||
-                          getTemplateId(template)}
+                        {template.templateId}
                       </code>
                     </TableCell>
                     <TableCell>{getCategoryBadge(template.category)}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">
-                        v
-                        {template.versionString ||
-                          (typeof template.version === "string"
-                            ? template.version
-                            : typeof template.version === "object" &&
-                              template.version
-                            ? `${template.version.major}.${template.version.minor}.${template.version.patch}`
-                            : "1.0.0")}
-                      </Badge>
+                      <Badge variant="outline">v{template.versionString}</Badge>
                     </TableCell>
                     <TableCell>{getStatusBadge(template.status)}</TableCell>
-                    <TableCell>
-                      {template.language || template.locale || "en-US"}
-                    </TableCell>
+                    <TableCell>{template.language}</TableCell>
                     <TableCell>
                       {selectedPlan !== "all" &&
-                      plans.find((p) => p._id === selectedPlan) ? (
+                        plans.find((p) => p._id === selectedPlan) ? (
                         getPlanBadge(selectedPlan)
                       ) : (
                         <Badge
@@ -800,6 +819,7 @@ const ContractTemplatesManagement: React.FC = () => {
                         </Badge>
                       )}
                     </TableCell>
+                    <TableCell>{template.name}</TableCell>
                     <TableCell>
                       {template.updatedAt
                         ? new Date(template.updatedAt).toLocaleDateString()
@@ -865,6 +885,89 @@ const ContractTemplatesManagement: React.FC = () => {
         onOpenChange={setViewDialogOpen}
         template={viewingTemplate}
       />
+
+      {/* Delete Confirmation Alert Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Contract Template
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this template?
+            </AlertDialogDescription>
+            <div className="space-y-3 mt-2">
+              {deletingTemplate && (
+                <div className="bg-muted p-3 rounded-md space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium">Template:</span>{" "}
+                    <span className="text-foreground">
+                      {deletingTemplate.name}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Template ID:</span>{" "}
+                    <code className="text-xs bg-background px-1.5 py-0.5 rounded">
+                      {deletingTemplate.id ||
+                        deletingTemplate.templateId ||
+                        deletingTemplate._id}
+                    </code>
+                  </div>
+                  <div>
+                    <span className="font-medium">Category:</span>{" "}
+                    <span className="text-foreground">
+                      {deletingTemplate.category}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Status:</span>{" "}
+                    <span className="text-foreground">
+                      {deletingTemplate.status}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-red-50 border border-red-200 p-3 rounded-md space-y-2 text-sm">
+                <div className="font-medium text-red-900">
+                  ⚠️ Warning: This action will:
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-red-800 ml-2">
+                  <li>Permanently delete this template</li>
+                  <li>Remove it from all associated contracts</li>
+                  <li>Cannot be undone or recovered</li>
+                </ul>
+              </div>
+
+              <div className="text-xs text-muted-foreground pt-2">
+                Make sure you have backed up any important information before
+                proceeding.
+              </div>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={formLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteTemplate}
+              disabled={formLoading}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {formLoading ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Template
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

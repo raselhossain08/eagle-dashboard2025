@@ -601,20 +601,14 @@ class ContractService {
     return {
       name: templateData.name.trim(),
       description: templateData.metadata?.description?.trim() || '',
+      locale: locale,
+      category: templateData.category || 'custom',
+      status: templateData.status || 'draft',
+      // Backend schema expects flat content structure with body, htmlBody, and variables
       content: {
-        languages: {
-          [language]: {
-            title: (templateData.metadata?.title?.trim()) || templateData.name.trim(),
-            body: templateData.content.body.trim(),
-            footer: '',
-            metadata: {
-              language: language,
-              region: locale.includes('-') ? locale.split('-')[1] : '',
-              currency: 'USD'
-            }
-          }
-        },
-        defaultLanguage: language
+        body: templateData.content.body.trim(),
+        htmlBody: templateData.content.htmlBody?.trim() || '',
+        variables: templateData.content.variables || []
       },
       placeholders: placeholders,
       config: {
@@ -639,13 +633,23 @@ class ContractService {
           governingLaw: templateData.metadata?.applicableLaw?.trim() || ''
         },
         expirationDays: 30,
-        reminderDays: [7, 3, 1]
+        reminderDays: [7, 3, 1],
+        requireEncryption: true,
+        allowOfflineAccess: false,
+        ipRestrictions: []
       },
       metadata: {
+        title: templateData.metadata?.title?.trim() || '',
+        description: templateData.metadata?.description?.trim() || '',
         tags: templateData.metadata?.tags || [],
-        category: templateData.category,
+        keywords: templateData.metadata?.keywords || [],
+        author: templateData.metadata?.author?.trim() || '',
         jurisdiction: templateData.metadata?.jurisdiction?.trim() || '',
-        complianceLevel: 'standard'
+        applicableLaw: templateData.metadata?.applicableLaw?.trim() || '',
+        // Preserve customFields including associatedPlanId
+        ...((templateData.metadata as any)?.customFields && {
+          customFields: (templateData.metadata as any).customFields
+        })
       }
     };
   }

@@ -21,13 +21,13 @@ export const useAuth = create<AuthState>((set, get) => ({
   login: async (credentials: LoginCredentials) => {
     try {
       const response = await authService.login(credentials)
-      
+
       if (response.success && response.token) {
         clientCookies.setAuthCookies(response.token, response.user)
-        
-        set({ 
-          user: response.user, 
-          isAuthenticated: true 
+
+        set({
+          user: response.user,
+          isAuthenticated: true
         })
       }
     } catch (error) {
@@ -37,12 +37,37 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   logout: async () => {
     try {
-      await authService.logout()
+      console.log('🚪 Starting logout process...')
+
+      // Call backend logout endpoint
+      try {
+        await authService.logout()
+        console.log('✅ Backend logout successful')
+      } catch (error) {
+        console.warn('⚠️ Backend logout failed, continuing with client logout:', error)
+      }
+
+      // Clear cookies
+      clientCookies.clearAuthCookies()
+      console.log('✅ Cookies cleared')
+
+      // Update state
+      set({ user: null, isAuthenticated: false })
+      console.log('✅ Auth state cleared')
+
+      // Redirect to login
+      if (typeof window !== 'undefined') {
+        console.log('🔄 Redirecting to login...')
+        window.location.href = '/login'
+      }
     } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
+      console.error('❌ Logout error:', error)
+      // Still clear cookies and redirect even on error
       clientCookies.clearAuthCookies()
       set({ user: null, isAuthenticated: false })
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
     }
   },
 
@@ -50,16 +75,16 @@ export const useAuth = create<AuthState>((set, get) => ({
     try {
       console.log('🔍 Zustand Auth: Checking authentication state...')
       const { token, user } = clientCookies.getAuthCookies()
-      console.log('🔍 Zustand Auth:', { 
-        hasToken: !!token, 
+      console.log('🔍 Zustand Auth:', {
+        hasToken: !!token,
         hasUser: !!user,
-        userEmail: user?.email 
+        userEmail: user?.email
       })
 
       if (token && user && user.id && user.email) {
         console.log('✅ Zustand Auth: Valid token and user data found in cookies')
-        set({ 
-          user: user, 
+        set({
+          user: user,
           isAuthenticated: true,
           isLoading: false
         })
@@ -67,18 +92,18 @@ export const useAuth = create<AuthState>((set, get) => ({
       }
 
       console.log('❌ Zustand Auth: No valid token/user data found')
-      set({ 
+      set({
         user: null,
         isAuthenticated: false,
-        isLoading: false 
+        isLoading: false
       })
     } catch (error) {
       console.error('❌ Zustand Auth: Auth check error:', error)
       clientCookies.clearAuthCookies()
-      set({ 
+      set({
         user: null,
         isAuthenticated: false,
-        isLoading: false 
+        isLoading: false
       })
     }
   }

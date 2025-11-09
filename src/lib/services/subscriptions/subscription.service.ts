@@ -1,5 +1,17 @@
 import ApiService from '../shared/api.service';
 
+export type SubscriptionStatus =
+  | "active"
+  | "inactive"
+  | "pending"
+  | "cancelled"
+  | "suspended"
+  | "paused"
+  | "expired"
+  | "none"
+  | "trial"
+  | "past_due";
+
 export interface Subscription {
   _id: string;
   subscriberId: string;
@@ -11,7 +23,7 @@ export interface Subscription {
   company?: string | null;
   country: string;
   subscription: string;
-  subscriptionStatus: string; // Maps to 'status' in old interface
+  subscriptionStatus: SubscriptionStatus;
   currentPlan: string; // Maps to 'planName' in old interface
   currentPlanId: string;
   planType: string;

@@ -272,11 +272,66 @@ const TemplateViewDialog: React.FC<TemplateViewDialogProps> = ({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="bg-gray-50 border rounded-lg p-4 max-h-96 overflow-y-auto">
-                    <pre className="text-sm whitespace-pre-wrap">
-                      {template.content.body}
-                    </pre>
-                  </div>
+                  {template.content?.body ? (
+                    <div className="bg-gray-50 border rounded-lg p-4 max-h-96 overflow-y-auto">
+                      <pre className="text-sm whitespace-pre-wrap font-mono">
+                        {template.content.body}
+                      </pre>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+                      <FileText className="h-12 w-12 mx-auto text-amber-400 mb-3" />
+                      <h3 className="text-sm font-medium text-amber-900 mb-1">
+                        No Content Available
+                      </h3>
+                      <p className="text-xs text-amber-700">
+                        This template doesn't have any content yet. Please edit
+                        the template to add content.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* HTML Content Preview (if exists) */}
+                  {template.content?.htmlBody && (
+                    <div className="mt-6">
+                      <h3 className="text-sm font-medium mb-2">HTML Version</h3>
+                      <div className="bg-gray-50 border rounded-lg p-4 max-h-96 overflow-y-auto">
+                        <div
+                          className="prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{
+                            __html: template.content.htmlBody,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Content Statistics */}
+                  {template.content?.body && (
+                    <div className="mt-4 grid grid-cols-3 gap-4 text-center">
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <div className="text-lg font-bold text-blue-700">
+                          {template.content.body.length}
+                        </div>
+                        <div className="text-xs text-blue-600">Characters</div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-3">
+                        <div className="text-lg font-bold text-green-700">
+                          {
+                            template.content.body.split(/\s+/).filter(Boolean)
+                              .length
+                          }
+                        </div>
+                        <div className="text-xs text-green-600">Words</div>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-3">
+                        <div className="text-lg font-bold text-purple-700">
+                          {template.content.body.split(/\n/).length}
+                        </div>
+                        <div className="text-xs text-purple-600">Lines</div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

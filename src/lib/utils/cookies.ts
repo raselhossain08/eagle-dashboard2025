@@ -55,9 +55,17 @@ export function getAuthCookies() {
 export function clearAuthCookies() {
   console.log('🧹 Clearing authentication cookies...')
   console.trace('Cookie clear called from:')
+
+  // Clear frontend cookie names
   Cookies.remove(TOKEN_NAME, { path: '/' })
   Cookies.remove(USER_DATA_NAME, { path: '/' })
   Cookies.remove(REFRESH_TOKEN_NAME, { path: '/' })
+
+  // Also clear backend cookie name (httpOnly cookie set by backend)
+  Cookies.remove(TOKEN_NAME_BACKEND, { path: '/' })
+  Cookies.remove('adminToken', { path: '/' })
+  Cookies.remove('admin_token', { path: '/' })
+
   console.log('✅ Authentication cookies cleared')
 }
 
@@ -111,9 +119,17 @@ export const clientCookies = {
   clearAuthCookies: () => {
     console.log('🧹 ClientCookies: Clearing authentication cookies...')
     console.trace('ClientCookies clear called from:')
+
+    // Clear frontend cookie names
     Cookies.remove(TOKEN_NAME, { path: '/' })
     Cookies.remove(USER_DATA_NAME, { path: '/' })
     Cookies.remove(REFRESH_TOKEN_NAME, { path: '/' })
+
+    // Also clear backend cookie name (httpOnly cookie set by backend)
+    Cookies.remove(TOKEN_NAME_BACKEND, { path: '/' })
+    Cookies.remove('adminToken', { path: '/' })
+    Cookies.remove('admin_token', { path: '/' })
+
     console.log('✅ ClientCookies: Authentication cookies cleared')
   },
 
@@ -153,10 +169,13 @@ export const clientCookies = {
   },
 
   performSecureLogout: () => {
-    // Clear all auth cookies
+    // Clear all auth cookies including both frontend and backend cookie names
     Cookies.remove(TOKEN_NAME, { path: '/' })
     Cookies.remove(USER_DATA_NAME, { path: '/' })
     Cookies.remove(REFRESH_TOKEN_NAME, { path: '/' })
+    Cookies.remove(TOKEN_NAME_BACKEND, { path: '/' })
+    Cookies.remove('adminToken', { path: '/' })
+    Cookies.remove('admin_token', { path: '/' })
   },
 
   getAccessToken: (): string | null => {
