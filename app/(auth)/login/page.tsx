@@ -31,8 +31,27 @@ function LoginForm() {
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl =
+
+  // Get and sanitize callback URL - only allow relative paths
+  const rawCallbackUrl =
     searchParams.get("callbackUrl") || searchParams.get("redirect") || "/";
+  const callbackUrl = (() => {
+    try {
+      // If it's an absolute URL, extract only the pathname
+      if (
+        rawCallbackUrl.startsWith("http://") ||
+        rawCallbackUrl.startsWith("https://")
+      ) {
+        const url = new URL(rawCallbackUrl);
+        return url.pathname + url.search;
+      }
+      // If it's already a relative path, use it
+      return rawCallbackUrl;
+    } catch {
+      // If parsing fails, default to home
+      return "/";
+    }
+  })();
 
   // Reset form function
   const resetForm = () => {
@@ -90,17 +109,10 @@ function LoginForm() {
           description: "Welcome back! (2FA disabled for development)",
         });
 
-        // Determine redirect URL for development mode
-        const redirectUrl =
-          callbackUrl && callbackUrl !== "/" ? callbackUrl : "/";
-
-        // Small delay to ensure cookies are set
+        // Redirect to admin dashboard
         setTimeout(() => {
-          console.log("🔧 DEV MODE: Redirecting to:", redirectUrl);
-          router.push(redirectUrl);
-          if (redirectUrl === "/") {
-            router.refresh();
-          }
+          console.log("🔧 DEV MODE: Redirecting to admin dashboard");
+          window.location.href = "https://admin.eagleinvest.us/";
         }, 100);
         return;
       }
@@ -113,18 +125,10 @@ function LoginForm() {
         description: "Welcome back!",
       });
 
-      // Determine redirect URL
-      const redirectUrl =
-        callbackUrl && callbackUrl !== "/" ? callbackUrl : "/";
-
-      // Small delay to ensure cookies are set and middleware processes correctly
+      // Redirect to admin dashboard
       setTimeout(() => {
-        console.log("🔄 Redirecting to:", redirectUrl);
-        router.push(redirectUrl);
-        // Force a page refresh to ensure middleware processes the new auth state
-        if (redirectUrl === "/") {
-          router.refresh();
-        }
+        console.log("🔄 Redirecting to admin dashboard");
+        window.location.href = "https://admin.eagleinvest.us/";
       }, 100);
     } catch (error: any) {
       console.error("Login error:", error);
