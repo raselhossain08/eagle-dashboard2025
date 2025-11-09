@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { ProtectedRoute } from '@/components/auth/protected-route';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Filter, Download, MoreHorizontal, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,8 +29,12 @@ import { EditUserDialog } from '@/components/dashboard/users/edit-user-dialog';
 import { DeleteUserDialog } from '@/components/dashboard/users/delete-user-dialog';
 import { BulkActionsDialog } from '@/components/dashboard/users/bulk-actions-dialog';
 import { UserDetailsDialog } from '@/components/dashboard/users/user-details-dialog';
+import { ChangeRoleDialog } from '@/components/dashboard/users/change-role-dialog';
+import { ChangeStatusDialog } from '@/components/dashboard/users/change-status-dialog';
 import { useUsers } from '@/components/dashboard/users/use-users';
 import { UserProfile, UserFilters } from '@/lib/types';
+import { UserService } from '@/lib/services';
+import { toast } from 'sonner';
 
 function UsersPageContent() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,8 +51,19 @@ function UsersPageContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Create filters object
-  const filters: UserFilters = {
+  // New dialog states for additional actions
+  const [showChangeRoleDialog, setShowChangeRoleDialog] = useState(false);
+  const [showChangeStatusDialog, setShowChangeStatusDialog] = useState(false);
+
+  // Sync tab change with status filter
+  const handleTabChange = (tab: string) => {
+    setCurrentTab(tab);
+    setSelectedStatus(tab); // Sync the status filter with the tab
+    setCurrentPage(1); // Reset to first page when changing tabs
+  };
+
+  // Create filters object with useMemo to prevent infinite loop
+  const filters: UserFilters = useMemo(() => ({
     search: searchQuery || undefined,
     role: selectedRole !== 'all' ? selectedRole as any : undefined,
     status: selectedStatus !== 'all' ? selectedStatus as any : undefined,
@@ -57,7 +71,7 @@ function UsersPageContent() {
     limit: pageSize,
     sortBy: 'createdAt',
     sortOrder: 'desc'
-  };
+  }), [searchQuery, selectedRole, selectedStatus, currentPage, pageSize]);
 
   const {
     users,
@@ -132,31 +146,103 @@ function UsersPageContent() {
     refetch();
   };
 
+  const handleChangeRole = (user: UserProfile) => {
+    setSelectedUser(user);
+    setShowChangeRoleDialog(true);
+  };
+
+  const handleChangeStatus = (user: UserProfile) => {
+    setSelectedUser(user);
+    setShowChangeStatusDialog(true);
+  };
+
+  const handleSendPasswordReset = async (user: UserProfile) => {
+    try {
+      const response = await UserService.sendPasswordReset(user._id);
+
+      if (response.success) {
+        toast.success('Password reset email sent successfully');
+      } else {
+        toast.error(response.message || 'Failed to send password reset email');
+      }
+    } catch (error: any) {
+      console.error('Error sending password reset:', error);
+      toast.error(error.message || 'Failed to send password reset email');
+    }
+  };
+
+  const handleVerifyEmail = async (user: UserProfile) => {
+    try {
+      const response = await UserService.verifyUserEmail(user._id);
+
+      if (response.success) {
+        toast.success('Email verified successfully');
+        refetch();
+      } else {
+        toast.error(response.message || 'Failed to verify email');
+      }
+    } catch (error: any) {
+      console.error('Error verifying email:', error);
+      toast.error(error.message || 'Failed to verify email');
+    }
+  };
+
+  const handleViewActivity = async (user: UserProfile) => {
+    // TODO: Open activity dialog/page
+    console.log('View activity for:', user.name);
+    toast.info('Activity log feature coming soon!');
+  };
+
+  const handleConfirmRoleChange = async (userId: string, role: string) => {
+    try {
+      const response = await UserService.changeUserRole(userId, role as any);
+
+      if (response.success) {
+        toast.success('User role updated successfully');
+        refetch();
+      } else {
+        toast.error(response.message || 'Failed to update user role');
+      }
+    } catch (error: any) {
+      console.error('Error changing role:', error);
+      toast.error(error.message || 'Failed to update user role');
+      throw error;
+    }
+  };
+
+  const handleConfirmStatusChange = async (userId: string, status: string) => {
+    try {
+      const response = await UserService.changeUserStatus(userId, status as any);
+
+      if (response.success) {
+        toast.success('User status updated successfully');
+        refetch();
+      } else {
+        toast.error(response.message || 'Failed to update user status');
+      }
+    } catch (error: any) {
+      console.error('Error changing status:', error);
+      toast.error(error.message || 'Failed to update user status');
+      throw error;
+    }
+  };
+
   const getTabUsers = (): UserProfile[] => {
     if (!users || !Array.isArray(users)) {
       console.warn('⚠️ Users is null or not an array:', users);
       return [];
     }
 
-    console.log('🔍 Filtering users for tab:', currentTab, 'Total users:', users.length);
-
-    switch (currentTab) {
-      case 'active':
-        return users.filter((user: UserProfile) => user.status === 'active');
-      case 'inactive':
-        return users.filter((user: UserProfile) => user.status === 'inactive');
-      case 'suspended':
-        return users.filter((user: UserProfile) => user.status === 'suspended');
-      case 'pending':
-        return users.filter((user: UserProfile) => user.status === 'pending');
-      default:
-        return users;
-    }
+    console.log('🔍 Tab:', currentTab, 'Total users from API:', users.length);
+    // No need to filter here, API already filtered based on selectedStatus
+    return users;
   };
 
   const tabUsers = getTabUsers();
 
-  return (
+  console.log('🎯 Tab users to display:', tabUsers.length);
+  console.log('📊 Loading state:', loading);
+  console.log('⚠️ Error state:', error); return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
@@ -226,10 +312,19 @@ function UsersPageContent() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="moderator">Moderator</SelectItem>
                 <SelectItem value="subscriber">Subscriber</SelectItem>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="customer">Customer</SelectItem>
+                <SelectItem value="author">Author</SelectItem>
+                <SelectItem value="contributor">Contributor</SelectItem>
+                <SelectItem value="editor">Editor</SelectItem>
+                <SelectItem value="administrator">Administrator</SelectItem>
+                <SelectItem value="shop_manager">Shop Manager</SelectItem>
+                <SelectItem value="group_leader">Group Leader</SelectItem>
+                <SelectItem value="student">Student</SelectItem>
+                <SelectItem value="web_designer">Web Designer</SelectItem>
+                <SelectItem value="seo_manager">SEO Manager</SelectItem>
+                <SelectItem value="seo_editor">SEO Editor</SelectItem>
               </SelectContent>
             </Select>
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -284,7 +379,7 @@ function UsersPageContent() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs value={currentTab} onValueChange={setCurrentTab}>
+          <Tabs value={currentTab} onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="all">
                 All Users
@@ -337,6 +432,11 @@ function UsersPageContent() {
                 onEditUser={handleEditUser}
                 onDeleteUser={handleDeleteUser}
                 onViewUser={handleViewUser}
+                onChangeRole={handleChangeRole}
+                onChangeStatus={handleChangeStatus}
+                onSendPasswordReset={handleSendPasswordReset}
+                onVerifyEmail={handleVerifyEmail}
+                onViewActivity={handleViewActivity}
                 currentPage={currentPage}
                 pageSize={pageSize}
                 onPageChange={setCurrentPage}
@@ -380,14 +480,24 @@ function UsersPageContent() {
         onOpenChange={setShowUserDetailsDialog}
         user={selectedUser}
       />
+
+      <ChangeRoleDialog
+        open={showChangeRoleDialog}
+        onOpenChange={setShowChangeRoleDialog}
+        user={selectedUser}
+        onChangeRole={handleConfirmRoleChange}
+      />
+
+      <ChangeStatusDialog
+        open={showChangeStatusDialog}
+        onOpenChange={setShowChangeStatusDialog}
+        user={selectedUser}
+        onChangeStatus={handleConfirmStatusChange}
+      />
     </div>
   );
 }
 
 export default function UsersPage() {
-  return (
-    <ProtectedRoute requiredRole="admin">
-      <UsersPageContent />
-    </ProtectedRoute>
-  );
+  return <UsersPageContent />;
 }

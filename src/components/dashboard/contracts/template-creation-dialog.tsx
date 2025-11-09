@@ -43,13 +43,24 @@ import {
   Eye,
   Code,
   CreditCard,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { toast } from "sonner";
+import * as pdfjsLib from "pdfjs-dist";
 import type {
   ContractTemplate,
   CreateContractTemplateRequest,
 } from "@/lib/services/contracts/contract.service";
 import type { Plan } from "@/lib/services/plans/plan.service";
+
+// Configure PDF.js worker
+if (typeof window !== "undefined") {
+  // Use local worker file for reliability
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+}
 
 interface TemplateCreationDialogProps {
   open: boolean;
@@ -65,15 +76,15 @@ interface TemplateVariable {
   name: string;
   label: string;
   type:
-    | "text"
-    | "number"
-    | "date"
-    | "boolean"
-    | "select"
-    | "textarea"
-    | "email"
-    | "phone"
-    | "currency";
+  | "text"
+  | "number"
+  | "date"
+  | "boolean"
+  | "select"
+  | "textarea"
+  | "email"
+  | "phone"
+  | "currency";
   required: boolean;
   defaultValue?: any;
   options?: string[];
@@ -92,10 +103,17 @@ const TemplateCreationDialog: React.FC<TemplateCreationDialogProps> = ({
   plansLoading = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [currentTab, setCurrentTab] = useState("basic");
   const [extracting, setExtracting] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>("none");
+  const [pdfDocument, setPdfDocument] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pdfScale, setPdfScale] = useState(1.5);
+  const [extractedText, setExtractedText] = useState<string>("");
+  const [showPreview, setShowPreview] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState<CreateContractTemplateRequest>({
@@ -143,7 +161,7 @@ const TemplateCreationDialog: React.FC<TemplateCreationDialogProps> = ({
       name: template?.name || "",
       category: template?.category || "custom",
       locale: template?.locale || "en-US",
-      status: template?.status || "draft", // Add status field
+      status: template?.status || "draft",
       content: {
         body: template?.content.body || "",
         htmlBody: template?.content.htmlBody || "",
@@ -176,7 +194,196 @@ const TemplateCreationDialog: React.FC<TemplateCreationDialogProps> = ({
     // Reset other form-related states
     setUploadedFile(null);
     setCurrentTab("basic");
+    setPdfDocument(null);
+    setExtractedText("");
+    setShowPreview(false);
+    setCurrentPage(1);
+    setTotalPages(0);
   }, [template]);
+
+  // Render PDF page
+  const renderPdfPage = async (pageNum: number) => {
+    if (!pdfDocument || !canvasRef.current) return;
+
+    try {
+      const page = await pdfDocument.getPage(pageNum);
+      const viewport = page.getViewport({ scale: pdfScale });
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+
+      if (!context) return;
+
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport,
+      };
+
+      await page.render(renderContext).promise;
+    } catch (error) {
+      console.error("Error rendering PDF page:", error);
+      toast.error("Failed to render PDF page");
+    }
+  };
+
+  // Update PDF rendering when page or scale changes
+  useEffect(() => {
+    if (pdfDocument && showPreview) {
+      renderPdfPage(currentPage);
+    }
+  }, [currentPage, pdfScale, pdfDocument, showPreview]);
+
+  // Extract text from PDF
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      setPdfDocument(pdf);
+      setTotalPages(pdf.numPages);
+      setCurrentPage(1);
+
+      let fullText = "";
+
+      // Extract text from all pages
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(" ");
+        fullText += pageText + "\n\n";
+      }
+
+      return fullText.trim();
+    } catch (error) {
+      console.error("PDF extraction error:", error);
+      throw new Error("Failed to extract text from PDF");
+    }
+  };
+
+  // Extract text from plain text files
+  const extractTextFromPlainText = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsText(file);
+    });
+  };
+
+  // Auto-detect and populate variables from extracted text
+  const autoPopulateVariables = (text: string) => {
+    const detectedVariables: TemplateVariable[] = [];
+
+    // Common patterns to detect
+    const patterns = {
+      email: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+      phone: /\b(\+\d{1,3}[- ]?)?\(?\d{3}\)?[- ]?\d{3}[- ]?\d{4}\b/g,
+      date: /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g,
+      currency: /\$\s?\d+(?:,\d{3})*(?:\.\d{2})?/g,
+      name: /\b(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b/g,
+    };
+
+    // Detect emails
+    const emails = text.match(patterns.email);
+    if (emails && emails.length > 0) {
+      detectedVariables.push({
+        name: "email_address",
+        label: "Email Address",
+        type: "email",
+        required: true,
+        defaultValue: emails[0],
+        description: "Auto-detected from document",
+        placeholder: "user@example.com",
+      });
+    }
+
+    // Detect phone numbers
+    const phones = text.match(patterns.phone);
+    if (phones && phones.length > 0) {
+      detectedVariables.push({
+        name: "phone_number",
+        label: "Phone Number",
+        type: "phone",
+        required: false,
+        defaultValue: phones[0],
+        description: "Auto-detected from document",
+        placeholder: "+1 (555) 123-4567",
+      });
+    }
+
+    // Detect dates
+    const dates = text.match(patterns.date);
+    if (dates && dates.length > 0) {
+      detectedVariables.push({
+        name: "contract_date",
+        label: "Contract Date",
+        type: "date",
+        required: true,
+        defaultValue: dates[0],
+        description: "Auto-detected from document",
+        placeholder: "MM/DD/YYYY",
+      });
+    }
+
+    // Detect currency amounts
+    const amounts = text.match(patterns.currency);
+    if (amounts && amounts.length > 0) {
+      detectedVariables.push({
+        name: "amount",
+        label: "Amount",
+        type: "currency",
+        required: true,
+        defaultValue: amounts[0],
+        description: "Auto-detected from document",
+        placeholder: "$0.00",
+      });
+    }
+
+    // Detect names with titles
+    const names = text.match(patterns.name);
+    if (names && names.length > 0) {
+      detectedVariables.push({
+        name: "party_name",
+        label: "Party Name",
+        type: "text",
+        required: true,
+        defaultValue: names[0],
+        description: "Auto-detected from document",
+        placeholder: "Full Name",
+      });
+    }
+
+    // Add common contract variables if not detected
+    if (!detectedVariables.some((v) => v.name === "party_name")) {
+      detectedVariables.push({
+        name: "client_name",
+        label: "Client Name",
+        type: "text",
+        required: true,
+        description: "Name of the client or party",
+        placeholder: "Enter client name",
+        group: "Parties",
+      });
+    }
+
+    if (!detectedVariables.some((v) => v.name === "contract_date")) {
+      detectedVariables.push({
+        name: "effective_date",
+        label: "Effective Date",
+        type: "date",
+        required: true,
+        description: "Date when the contract becomes effective",
+        placeholder: "MM/DD/YYYY",
+        group: "Dates",
+      });
+    }
+
+    return detectedVariables;
+  };
 
   // Handle file upload and text extraction
   const handleFileUpload = async (
@@ -199,78 +406,72 @@ const TemplateCreationDialog: React.FC<TemplateCreationDialogProps> = ({
 
     setUploadedFile(file);
     setExtracting(true);
+    setShowPreview(false);
 
     try {
-      const text = await extractTextFromFile(file);
+      let extractedContent = "";
 
+      if (file.type === "application/pdf") {
+        extractedContent = await extractTextFromPDF(file);
+        setShowPreview(true);
+        toast.success(
+          `PDF extracted successfully! ${totalPages || "Multiple"} pages found.`
+        );
+      } else if (file.type === "text/plain") {
+        extractedContent = await extractTextFromPlainText(file);
+        toast.success("Text file content extracted successfully");
+      } else {
+        // For DOC/DOCX, show message about backend processing
+        toast.warning(
+          "Word document extraction requires backend processing. Please use PDF or TXT format for now."
+        );
+        setExtracting(false);
+        return;
+      }
+
+      setExtractedText(extractedContent);
+
+      // Update form data with extracted content
       setFormData((prev) => ({
         ...prev,
         content: {
           ...prev.content,
-          body: text,
+          body: extractedContent,
         },
       }));
 
-      toast.success("File content extracted successfully");
+      // Auto-populate variables from extracted text
+      const detectedVars = autoPopulateVariables(extractedContent);
+      if (detectedVars.length > 0) {
+        setVariables((prev) => {
+          // Merge detected variables with existing ones, avoiding duplicates
+          const existingNames = prev.map((v) => v.name);
+          const newVars = detectedVars.filter(
+            (v) => !existingNames.includes(v.name)
+          );
+          return [...prev, ...newVars];
+        });
+        toast.success(
+          `${detectedVars.length} variables auto-detected and added!`
+        );
+      }
     } catch (error) {
       console.error("File extraction error:", error);
-      toast.error("Failed to extract text from file");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to extract text from file"
+      );
     } finally {
       setExtracting(false);
     }
-  };
-
-  // Extract text from different file types
-  const extractTextFromFile = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = async (e) => {
-        try {
-          const content = e.target?.result;
-
-          if (file.type === "text/plain") {
-            resolve(content as string);
-          } else if (file.type === "application/pdf") {
-            // For PDF, we'd typically use pdf.js or a backend service
-            // For now, show a message that PDF extraction needs backend
-            toast.info(
-              "PDF extraction requires backend processing. Using basic extraction..."
-            );
-            resolve("PDF content will be extracted by the backend service.");
-          } else if (
-            file.type === "application/msword" ||
-            file.type ===
-              "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          ) {
-            // For DOC/DOCX, we'd typically use mammoth.js or a backend service
-            toast.info(
-              "Word document extraction requires backend processing. Using basic extraction..."
-            );
-            resolve(
-              "Word document content will be extracted by the backend service."
-            );
-          } else {
-            // Fallback for other types
-            resolve(content as string);
-          }
-        } catch (error) {
-          reject(error);
-        }
-      };
-
-      reader.onerror = () => reject(new Error("Failed to read file"));
-
-      if (file.type === "text/plain") {
-        reader.readAsText(file);
-      } else {
-        reader.readAsArrayBuffer(file);
-      }
-    });
-  };
-
-  const handleRemoveFile = () => {
+  }; const handleRemoveFile = () => {
     setUploadedFile(null);
+    setPdfDocument(null);
+    setExtractedText("");
+    setShowPreview(false);
+    setCurrentPage(1);
+    setTotalPages(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -330,6 +531,19 @@ const TemplateCreationDialog: React.FC<TemplateCreationDialogProps> = ({
   // Submit handler
   const handleSubmit = async () => {
     try {
+      // Validation
+      if (!formData.name.trim()) {
+        toast.error("Template name is required");
+        setCurrentTab("basic");
+        return;
+      }
+
+      if (!formData.content.body.trim()) {
+        toast.error("Template content is required");
+        setCurrentTab("content");
+        return;
+      }
+
       const submitData: CreateContractTemplateRequest = {
         ...formData,
         content: {
@@ -340,18 +554,30 @@ const TemplateCreationDialog: React.FC<TemplateCreationDialogProps> = ({
           ...formData.metadata,
           tags,
           keywords,
+          // Store selected plan in metadata for now until backend supports config
+          ...(selectedPlan !== "none" && {
+            customFields: { associatedPlanId: selectedPlan },
+          }),
         },
       };
 
-      // Log the selected plan for debugging and future backend integration
-      if (selectedPlan !== "none") {
-        console.log("Template will be associated with plan:", selectedPlan);
-        // TODO: When backend supports plan association, include selectedPlan in the submission
-      }
-
       await onSubmit(submitData);
+
+      // Show success message with plan info
+      if (selectedPlan !== "none") {
+        const plan = plans.find((p) => p._id === selectedPlan);
+        toast.success(
+          `Template ${template ? "updated" : "created"} and associated with ${plan?.displayName
+          }!`
+        );
+      }
     } catch (error) {
       console.error("Submit error:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to save template. Please try again."
+      );
     }
   };
 
@@ -804,6 +1030,110 @@ const TemplateCreationDialog: React.FC<TemplateCreationDialogProps> = ({
                       automatically extracted.
                     </p>
                   </div>
+
+                  {/* PDF Preview Section */}
+                  {showPreview && pdfDocument && uploadedFile && (
+                    <Card className="border-2 border-blue-500">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                              <Eye className="h-5 w-5 text-blue-600" />
+                              PDF Preview
+                            </CardTitle>
+                            <CardDescription className="text-xs sm:text-sm">
+                              {uploadedFile.name} - Page {currentPage} of{" "}
+                              {totalPages}
+                            </CardDescription>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setPdfScale((s) => Math.max(0.5, s - 0.25))}
+                              disabled={pdfScale <= 0.5}
+                            >
+                              <ZoomOut className="h-4 w-4" />
+                            </Button>
+                            <span className="text-sm font-medium">
+                              {Math.round(pdfScale * 100)}%
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setPdfScale((s) => Math.min(3, s + 0.25))}
+                              disabled={pdfScale >= 3}
+                            >
+                              <ZoomIn className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="border rounded-lg overflow-hidden bg-gray-100">
+                          <canvas
+                            ref={canvasRef}
+                            className="w-full h-auto"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={currentPage <= 1}
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <span className="text-sm text-muted-foreground">
+                            Page {currentPage} of {totalPages}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setCurrentPage((p) => Math.min(totalPages, p + 1))
+                            }
+                            disabled={currentPage >= totalPages}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Extracted Text Display */}
+                  {extractedText && (
+                    <Card className="border-2 border-green-500">
+                      <CardHeader>
+                        <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          Extracted Content
+                        </CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">
+                          {extractedText.length} characters extracted from your document
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-h-48 overflow-y-auto">
+                          <pre className="text-xs whitespace-pre-wrap font-mono text-green-900">
+                            {extractedText.substring(0, 500)}
+                            {extractedText.length > 500 && "..."}
+                          </pre>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          This content has been automatically added to the Template Body field below
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="body" className="text-sm sm:text-base">

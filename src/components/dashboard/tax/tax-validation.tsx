@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTaxValidation } from '@/hooks/useTaxValidation';
 import { CheckCircle, XCircle, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function TaxValidation() {
     const [formData, setFormData] = useState({
@@ -21,11 +22,16 @@ export function TaxValidation() {
 
     const handleValidate = async (e: React.FormEvent) => {
         e.preventDefault();
-        await validateTaxId({
-            taxId: formData.taxId,
-            country: formData.country,
-            state: formData.state || undefined,
-        });
+        try {
+            await validateTaxId({
+                taxId: formData.taxId,
+                country: formData.country,
+                state: formData.state || undefined,
+            });
+            toast.success('Tax ID validated');
+        } catch (err) {
+            toast.error('Failed to validate tax ID');
+        }
     };
 
     return (
@@ -95,8 +101,8 @@ export function TaxValidation() {
 
                 {result && (
                     <div className={`mt-6 p-4 rounded-lg border ${result.valid
-                            ? 'bg-green-50 border-green-200'
-                            : 'bg-red-50 border-red-200'
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200'
                         }`}>
                         <div className="flex items-center gap-2 mb-2">
                             {result.valid ? (

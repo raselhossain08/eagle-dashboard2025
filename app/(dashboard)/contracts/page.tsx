@@ -225,11 +225,45 @@ const ContractsManagement: React.FC = () => {
   };
 
   const handleSendForSignature = async (contract: Contract) => {
+    // Collect recipient information
+    const recipients: string[] = [];
+
+    if (contract.parties.primary.email) {
+      recipients.push(`Primary: ${contract.parties.primary.name} (${contract.parties.primary.email})`);
+    }
+
+    if (contract.parties.secondary.email) {
+      recipients.push(`Secondary: ${contract.parties.secondary.name} (${contract.parties.secondary.email})`);
+    }
+
+    if (contract.parties.additional && contract.parties.additional.length > 0) {
+      contract.parties.additional.forEach((party, index) => {
+        if (party.email) {
+          recipients.push(`Additional ${index + 1}: ${party.name || 'N/A'} (${party.email})`);
+        }
+      });
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `📧 Send Contract for Signature\n\n` +
+      `Contract: "${contract.title}"\n` +
+      `Contract #: ${contract.contractNumber}\n\n` +
+      `The following parties will receive an email invitation to sign:\n\n` +
+      `${recipients.join('\n')}\n\n` +
+      `Total Recipients: ${recipients.length}\n\n` +
+      `Do you want to proceed?`
+    );
+
+    if (!confirmed) return;
+
     try {
       const response = await ContractService.sendForSignature(contract._id);
 
       if (response.success) {
-        toast.success('Contract sent for signature');
+        toast.success(
+          `Contract sent successfully to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`
+        );
         loadContracts();
       } else {
         throw new Error(response.error || 'Failed to send for signature');
@@ -241,14 +275,46 @@ const ContractsManagement: React.FC = () => {
   };
 
   const handleCancel = async (contract: Contract) => {
-    const reason = prompt('Please provide a reason for cancelling this contract:');
-    if (!reason) return;
+    // First confirmation with warning
+    const confirmed = window.confirm(
+      `⚠️ WARNING: Cancel Contract\n\n` +
+      `Contract: "${contract.title}"\n` +
+      `Contract #: ${contract.contractNumber}\n` +
+      `Current Status: ${contract.status}\n\n` +
+      `Cancelling this contract will:\n` +
+      `• Stop all pending signature requests\n` +
+      `• Send cancellation notifications to all parties\n` +
+      `• Mark the contract as "cancelled"\n` +
+      `• Record the cancellation in the audit trail\n` +
+      `• THIS ACTION CANNOT BE UNDONE\n\n` +
+      `Are you sure you want to cancel this contract?`
+    );
+
+    if (!confirmed) return;
+
+    // Ask for reason with better UX
+    const reason = window.prompt(
+      '📝 Cancellation Reason\n\n' +
+      'Please provide a detailed reason for cancelling this contract.\n' +
+      'This will be recorded in the audit trail and sent to all parties.\n\n' +
+      'Reason (required):'
+    );
+
+    if (!reason?.trim()) {
+      toast.error('Cancellation reason is required');
+      return;
+    }
+
+    if (reason.trim().length < 10) {
+      toast.error('Please provide a more detailed reason (at least 10 characters)');
+      return;
+    }
 
     try {
-      const response = await ContractService.cancelContract(contract._id, reason);
+      const response = await ContractService.cancelContract(contract._id, reason.trim());
 
       if (response.success) {
-        toast.success('Contract cancelled');
+        toast.success('Contract cancelled successfully');
         loadContracts();
       } else {
         throw new Error(response.error || 'Failed to cancel contract');
@@ -260,9 +326,36 @@ const ContractsManagement: React.FC = () => {
   };
 
   const handleDelete = async (contract: Contract) => {
-    if (!confirm(`Are you sure you want to delete "${contract.title}"? This action cannot be undone.`)) {
-      return;
-    }
+    // Comprehensive warning dialog
+    const confirmed = window.confirm(
+      `🗑️ DELETE CONTRACT\n\n` +
+      `Contract: "${contract.title}"\n` +
+      `Contract #: ${contract.contractNumber}\n` +
+      `Status: ${contract.status}\n` +
+      `Created: ${new Date(contract.createdAt).toLocaleDateString()}\n\n` +
+      `⚠️ CRITICAL WARNING:\n` +
+      `• This will PERMANENTLY DELETE the contract\n` +
+      `• All associated data will be LOST\n` +
+      `• Signatures and audit trails will be REMOVED\n` +
+      `• This action CANNOT BE UNDONE\n\n` +
+      `❓ Consider these alternatives instead:\n` +
+      `• Cancel the contract (keeps records)\n` +
+      `• Archive the contract (hides from view)\n\n` +
+      `Are you ABSOLUTELY SURE you want to DELETE?`
+    );
+
+    if (!confirmed) return;
+
+    // Second confirmation for safety
+    const finalConfirm = window.confirm(
+      `FINAL CONFIRMATION REQUIRED\n\n` +
+      `You are about to permanently delete:\n` +
+      `"${contract.title}"\n\n` +
+      `This is your LAST CHANCE to cancel.\n\n` +
+      `Click OK to proceed with PERMANENT DELETION.`
+    );
+
+    if (!finalConfirm) return;
 
     try {
       const response = await ContractService.deleteContract(contract._id);
@@ -275,7 +368,21 @@ const ContractsManagement: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Delete contract error:', error);
-      toast.error(error.message || 'Failed to delete contract');
+
+      // Provide detailed error messages
+      let errorMessage = 'Failed to delete contract';
+
+      if (error.message?.includes('permission') || error.message?.includes('authorized')) {
+        errorMessage = 'You do not have permission to delete this contract';
+      } else if (error.message?.includes('active') || error.message?.includes('signed')) {
+        errorMessage = 'Cannot delete active or signed contracts. Please cancel first.';
+      } else if (error.message?.includes('not found')) {
+        errorMessage = 'Contract not found. It may have been already deleted.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error(errorMessage);
     }
   };
 

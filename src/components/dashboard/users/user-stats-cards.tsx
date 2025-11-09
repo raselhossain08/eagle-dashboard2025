@@ -1,14 +1,14 @@
 "use client";
 
-import { 
-  Users, 
-  UserCheck, 
-  UserX, 
-  Shield, 
-  Clock, 
-  TrendingUp, 
+import {
+  Users,
+  UserCheck,
+  UserX,
+  Shield,
+  Clock,
+  TrendingUp,
   Eye,
-  UserPlus 
+  UserPlus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,69 +46,67 @@ export function UserStatsCards({ stats, loading }: UserStatsCardsProps) {
   const statCards = [
     {
       title: 'Total Users',
-      value: stats.totalUsers,
+      value: stats.totalUsers || 0,
       description: 'All registered users',
       icon: Users,
       color: 'text-blue-600 dark:text-blue-400'
     },
     {
       title: 'Active Users',
-      value: stats.activeUsers,
+      value: stats.activeUsers || 0,
       description: 'Currently active',
       icon: UserCheck,
       color: 'text-green-600 dark:text-green-400'
     },
     {
       title: 'Inactive Users',
-      value: stats.inactiveUsers,
+      value: stats.inactiveUsers || 0,
       description: 'Not currently active',
       icon: UserX,
       color: 'text-gray-600 dark:text-gray-400'
     },
     {
       title: 'Suspended Users',
-      value: stats.suspendedUsers,
+      value: stats.suspendedUsers || 0,
       description: 'Temporarily suspended',
       icon: Shield,
       color: 'text-red-600 dark:text-red-400'
     },
     {
       title: 'Pending Users',
-      value: stats.pendingUsers,
+      value: stats.pendingUsers || 0,
       description: 'Awaiting approval',
       icon: Clock,
       color: 'text-yellow-600 dark:text-yellow-400'
     },
     {
       title: 'Verified Users',
-      value: stats.verifiedUsers,
+      value: stats.verifiedUsers || 0,
       description: 'Email verified',
       icon: UserCheck,
       color: 'text-emerald-600 dark:text-emerald-400'
     },
     {
       title: 'Online Users',
-      value: stats.onlineUsers,
+      value: stats.onlineUsers || 0,
       description: 'Currently online',
       icon: Eye,
       color: 'text-purple-600 dark:text-purple-400'
     },
     {
       title: 'New This Month',
-      value: stats.newUsersThisMonth,
-      description: `${stats.userGrowthPercentage > 0 ? '+' : ''}${stats.userGrowthPercentage.toFixed(1)}% growth`,
+      value: stats.newUsersThisMonth || 0,
+      description: `${(stats.userGrowthPercentage || 0) > 0 ? '+' : ''}${(stats.userGrowthPercentage || 0).toFixed(1)}% growth`,
       icon: UserPlus,
-      color: stats.userGrowthPercentage >= 0 
-        ? 'text-green-600 dark:text-green-400' 
+      color: (stats.userGrowthPercentage || 0) >= 0
+        ? 'text-green-600 dark:text-green-400'
         : 'text-red-600 dark:text-red-400'
     }
-  ];
-
-  return (
+  ]; return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {statCards.map((card, index) => {
         const Icon = card.icon;
-        
+
         return (
           <Card key={index} className="relative overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -124,7 +122,7 @@ export function UserStatsCards({ stats, loading }: UserStatsCardsProps) {
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                 {card.description}
               </p>
-              
+
               {/* Background decoration */}
               <div className={`absolute top-0 right-0 w-20 h-20 opacity-5 ${card.color}`}>
                 <Icon className="w-full h-full" />

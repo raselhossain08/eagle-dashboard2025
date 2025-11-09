@@ -12,7 +12,14 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Key,
+  Activity,
+  UserCog,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import {
   Table,
@@ -46,6 +53,11 @@ interface UserDataTableProps {
   onEditUser: (user: UserProfile) => void;
   onDeleteUser: (user: UserProfile) => void;
   onViewUser: (user: UserProfile) => void;
+  onChangeRole?: (user: UserProfile) => void;
+  onChangeStatus?: (user: UserProfile) => void;
+  onSendPasswordReset?: (user: UserProfile) => void;
+  onVerifyEmail?: (user: UserProfile) => void;
+  onViewActivity?: (user: UserProfile) => void;
   currentPage: number;
   pageSize: number;
   onPageChange: (page: number) => void;
@@ -60,12 +72,26 @@ export function UserDataTable({
   onEditUser,
   onDeleteUser,
   onViewUser,
+  onChangeRole,
+  onChangeStatus,
+  onSendPasswordReset,
+  onVerifyEmail,
+  onViewActivity,
+  currentPage,
+  pageSize,
+  onPageChange,
 }: UserDataTableProps) {
 
   // Debug: Log users data
   console.log('🔍 UserDataTable received users:', users);
   console.log('📊 Users count:', users?.length || 0);
   console.log('⏳ Loading state:', loading);
+
+  // Calculate pagination
+  const totalPages = Math.ceil((users?.length || 0) / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedUsers = users?.slice(startIndex, endIndex) || [];
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -213,7 +239,7 @@ export function UserDataTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {!users || users.length === 0 ? (
+          {!paginatedUsers || paginatedUsers.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-8">
                 <div className="flex flex-col items-center space-y-2 text-gray-500 dark:text-gray-400">
@@ -224,7 +250,7 @@ export function UserDataTable({
               </TableCell>
             </TableRow>
           ) : (
-            users.map((user) => (
+            paginatedUsers.map((user) => (
               <TableRow key={user._id}>
                 <TableCell>
                   <Checkbox
@@ -282,7 +308,7 @@ export function UserDataTable({
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => onViewUser(user)}>
                         <Eye className="mr-2 h-4 w-4" />
@@ -292,6 +318,41 @@ export function UserDataTable({
                         <Edit className="mr-2 h-4 w-4" />
                         Edit user
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+
+                      {/* Quick Actions */}
+                      <DropdownMenuLabel className="text-xs text-gray-500">Quick Actions</DropdownMenuLabel>
+                      {onChangeRole && (
+                        <DropdownMenuItem onClick={() => onChangeRole(user)}>
+                          <UserCog className="mr-2 h-4 w-4" />
+                          Change role
+                        </DropdownMenuItem>
+                      )}
+                      {onChangeStatus && (
+                        <DropdownMenuItem onClick={() => onChangeStatus(user)}>
+                          <Shield className="mr-2 h-4 w-4" />
+                          Change status
+                        </DropdownMenuItem>
+                      )}
+                      {onVerifyEmail && !user.isEmailVerified && (
+                        <DropdownMenuItem onClick={() => onVerifyEmail(user)}>
+                          <Mail className="mr-2 h-4 w-4" />
+                          Verify email
+                        </DropdownMenuItem>
+                      )}
+                      {onSendPasswordReset && (
+                        <DropdownMenuItem onClick={() => onSendPasswordReset(user)}>
+                          <Key className="mr-2 h-4 w-4" />
+                          Send password reset
+                        </DropdownMenuItem>
+                      )}
+                      {onViewActivity && (
+                        <DropdownMenuItem onClick={() => onViewActivity(user)}>
+                          <Activity className="mr-2 h-4 w-4" />
+                          View activity
+                        </DropdownMenuItem>
+                      )}
+
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => onDeleteUser(user)}
@@ -308,6 +369,75 @@ export function UserDataTable({
           )}
         </TableBody>
       </Table>
+
+      {/* Pagination Controls */}
+      {paginatedUsers && paginatedUsers.length > 0 && (
+        <div className="flex items-center justify-between px-4 py-4 border-t">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Showing {startIndex + 1} to {Math.min(endIndex, users?.length || 0)} of {users?.length || 0} results
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => onPageChange(pageNum)}
+                    className="w-8 h-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -145,13 +145,7 @@ const paymentItems = [
     href: "/transactions",
     icon: ArrowRightLeft,
     badge: null,
-  },
-  {
-    title: "PayPal Transactions",
-    href: "/transactions/paypal",
-    icon: CreditCard,
-    badge: null,
-  },
+  }
 ];
 
 const billingItems = [
@@ -159,12 +153,6 @@ const billingItems = [
     title: "Billing Overview",
     href: "/billing",
     icon: Receipt,
-    badge: null,
-  },
-  {
-    title: "Tax Rates",
-    href: "/billing/tax-rates",
-    icon: Calculator,
     badge: null,
   },
   {
@@ -264,6 +252,18 @@ const managementItems = [
     title: "Customer Profiles",
     href: "/subscriber-profiles",
     icon: UserCheck,
+    badge: null,
+  },
+  {
+    title: "WP Migration",
+    href: "/wp-migration",
+    icon: RefreshCw,
+    badge: null,
+  },
+  {
+    title: "WP Dashboard",
+    href: "/wp-dashboard",
+    icon: Layout,
     badge: null,
   },
   {

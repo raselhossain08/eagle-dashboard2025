@@ -28,7 +28,7 @@ class UserService {
    */
   static async getUsers(filters?: UserFilters): Promise<UsersResponse> {
     const params = new URLSearchParams();
-    
+
     if (filters) {
       if (filters.search) params.append('search', filters.search);
       if (filters.role && filters.role !== 'all') params.append('role', filters.role);
@@ -46,7 +46,7 @@ class UserService {
 
     const queryString = params.toString();
     const url = queryString ? `/users?${queryString}` : '/users';
-    
+
     return ApiService.get<UsersResponse>(url);
   }
 
@@ -89,8 +89,8 @@ class UserService {
    * Get user activity logs
    */
   static async getUserActivity(
-    userId: string, 
-    page: number = 1, 
+    userId: string,
+    page: number = 1,
     limit: number = 20
   ): Promise<UserActivityResponse> {
     return ApiService.get<UserActivityResponse>(
@@ -102,7 +102,7 @@ class UserService {
    * Get all user activities (admin only)
    */
   static async getAllUserActivities(
-    page: number = 1, 
+    page: number = 1,
     limit: number = 20
   ): Promise<UserActivityResponse> {
     return ApiService.get<UserActivityResponse>(
@@ -123,23 +123,23 @@ class UserService {
   static async exportUsers(options: UserExportOptions): Promise<Blob> {
     // For blob response, we need to handle it differently
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-    const token = ApiService.getToken();
+    const token = ApiService.getAuthToken();
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
     };
-    
+
     const response = await fetch(`${API_BASE_URL}/users/export`, {
       method: 'POST',
       headers,
       credentials: 'include',
       body: JSON.stringify(options),
     });
-    
+
     if (!response.ok) {
       throw new Error('Export failed');
     }
-    
+
     return response.blob();
   }
 
@@ -168,8 +168,8 @@ class UserService {
    * Change user role
    */
   static async changeUserRole(
-    userId: string, 
-    role: 'admin' | 'user' | 'moderator' | 'subscriber'
+    userId: string,
+    role: 'subscriber' | 'user' | 'customer' | 'author' | 'contributor' | 'editor' | 'administrator' | 'shop_manager' | 'group_leader' | 'student' | 'web_designer' | 'seo_manager' | 'seo_editor'
   ): Promise<UserResponse> {
     return ApiService.put<UserResponse>(`/users/${userId}/role`, { role });
   }
@@ -178,7 +178,7 @@ class UserService {
    * Change user status
    */
   static async changeUserStatus(
-    userId: string, 
+    userId: string,
     status: 'active' | 'inactive' | 'suspended' | 'pending'
   ): Promise<UserResponse> {
     return ApiService.put<UserResponse>(`/users/${userId}/status`, { status });
@@ -190,7 +190,7 @@ class UserService {
   static async uploadAvatar(userId: string, file: File): Promise<UserResponse> {
     const formData = new FormData();
     formData.append('avatar', file);
-    
+
     return ApiService.postFormData<UserResponse>(`/users/${userId}/avatar`, formData);
   }
 
@@ -240,7 +240,7 @@ class UserService {
    * Update user permissions
    */
   static async updateUserPermissions(
-    userId: string, 
+    userId: string,
     permissions: string[]
   ): Promise<ApiResponse> {
     return ApiService.put<ApiResponse>(`/users/${userId}/permissions`, { permissions });
@@ -257,7 +257,7 @@ class UserService {
    * Update user subscription
    */
   static async updateUserSubscription(
-    userId: string, 
+    userId: string,
     subscriptionData: any
   ): Promise<ApiResponse> {
     return ApiService.put<ApiResponse>(`/users/${userId}/subscription`, subscriptionData);
@@ -267,8 +267,8 @@ class UserService {
    * Get user login history
    */
   static async getUserLoginHistory(
-    userId: string, 
-    page: number = 1, 
+    userId: string,
+    page: number = 1,
     limit: number = 20
   ): Promise<any> {
     return ApiService.get<any>(

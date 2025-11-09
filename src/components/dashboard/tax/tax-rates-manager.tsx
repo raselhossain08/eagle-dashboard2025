@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TaxRatesTable } from './tax-rates-table';
 import { TaxRate } from '@/lib/types/tax';
 import { taxService } from '@/lib/services/tax.service';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { CreateTaxRateDialog } from './create-tax-rate-dialog';
+import { toast } from 'sonner';
 
 export function TaxRatesManager() {
     const [rates, setRates] = useState<TaxRate[]>([]);
@@ -21,19 +22,50 @@ export function TaxRatesManager() {
             setRates(response.data);
         } catch (error) {
             console.error('Failed to load tax rates:', error);
+            toast.error('Failed to load tax rates');
         } finally {
             setLoading(false);
         }
     };
 
+    // Load rates on component mount
+    useEffect(() => {
+        loadRates();
+    }, []);
+
     const handleEdit = async (id: string, data: Partial<TaxRate>) => {
-        await taxService.updateTaxRate(id, data);
-        await loadRates();
+        try {
+            await taxService.updateTaxRate(id, data);
+            toast.success('Tax rate updated successfully');
+            await loadRates();
+        } catch (error) {
+            console.error('Failed to update tax rate:', error);
+            toast.error('Failed to update tax rate');
+        }
     };
 
     const handleDelete = async (id: string) => {
-        await taxService.deleteTaxRate(id);
-        await loadRates();
+        try {
+            await taxService.deleteTaxRate(id);
+            toast.success('Tax rate deleted successfully');
+            await loadRates();
+        } catch (error) {
+            console.error('Failed to delete tax rate:', error);
+            toast.error('Failed to delete tax rate');
+        }
+    };
+
+    const handleCreate = async (data: Partial<TaxRate>) => {
+        try {
+            await taxService.createTaxRate(data);
+            toast.success('Tax rate created successfully');
+            await loadRates();
+            setCreateDialogOpen(false);
+        } catch (error) {
+            console.error('Failed to create tax rate:', error);
+            toast.error('Failed to create tax rate');
+            throw error; // Re-throw to let dialog handle it
+        }
     };
 
     return (
@@ -59,11 +91,9 @@ export function TaxRatesManager() {
                 />
             </CardContent>
             <CreateTaxRateDialog
-                onSave={async (data) => {
-                    await taxService.createTaxRate(data);
-                    await loadRates();
-                    setCreateDialogOpen(false);
-                }}
+                open={createDialogOpen}
+                onOpenChange={setCreateDialogOpen}
+                onSave={handleCreate}
             />
         </Card>
     );

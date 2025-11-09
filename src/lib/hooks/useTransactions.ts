@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { transactionService, Transaction, TransactionsResponse, TransactionStats, SearchParams } from '../services/transactio.service';
 
 
@@ -22,7 +23,9 @@ export function useTransactions() {
                 setPagination(response.pagination);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch transactions');
+            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch transactions';
+            setError(errorMessage);
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -39,7 +42,9 @@ export function useTransactions() {
                 setPagination(response.pagination);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to search transactions');
+            const errorMessage = err instanceof Error ? err.message : 'Failed to search transactions';
+            setError(errorMessage);
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -70,7 +75,9 @@ export function useTransactionStats() {
                 setStats(response.stats);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
+            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch statistics';
+            setError(errorMessage);
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }

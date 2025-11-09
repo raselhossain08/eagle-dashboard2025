@@ -27,7 +27,8 @@ export function TaxRatesTable({ taxRates, onEdit, onDelete, loading }: TaxRatesT
     const [editingRate, setEditingRate] = useState<TaxRate | null>(null);
     const [deletingRate, setDeletingRate] = useState<TaxRate | null>(null);
 
-    const getTaxTypeColor = (type: string) => {
+    const getTaxTypeColor = (type: string | undefined) => {
+        if (!type) return 'bg-gray-100 text-gray-800';
         const colors: Record<string, string> = {
             SALES_TAX: 'bg-blue-100 text-blue-800',
             VAT: 'bg-green-100 text-green-800',
@@ -71,16 +72,16 @@ export function TaxRatesTable({ taxRates, onEdit, onDelete, loading }: TaxRatesT
                 <TableBody>
                     {taxRates.map((rate) => (
                         <TableRow key={rate._id}>
-                            <TableCell className="font-medium">{rate.name}</TableCell>
+                            <TableCell className="font-medium">{rate.name || 'Unnamed'}</TableCell>
                             <TableCell>
                                 <div className="flex flex-col">
-                                    <span className="font-medium">{rate.country}</span>
-                                    <span className="text-sm text-gray-500">{rate.state}</span>
+                                    <span className="font-medium">{rate.country || 'N/A'}</span>
+                                    <span className="text-sm text-gray-500">{rate.state || '-'}</span>
                                 </div>
                             </TableCell>
                             <TableCell>
                                 <Badge variant="secondary" className={getTaxTypeColor(rate.taxType)}>
-                                    {rate.taxType.replace('_', ' ')}
+                                    {rate.taxType?.replace('_', ' ') || 'N/A'}
                                 </Badge>
                             </TableCell>
                             <TableCell className="font-semibold">{rate.rate}%</TableCell>

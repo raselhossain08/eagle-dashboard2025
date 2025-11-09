@@ -2,7 +2,7 @@ export interface UserProfile {
   _id: string;
   name: string;
   email: string;
-  role: 'admin' | 'user' | 'moderator' | 'subscriber';
+  role: 'subscriber' | 'user' | 'customer' | 'author' | 'contributor' | 'editor' | 'administrator' | 'shop_manager' | 'group_leader' | 'student' | 'web_designer' | 'seo_manager' | 'seo_editor';
   status: 'active' | 'inactive' | 'suspended' | 'pending';
   isEmailVerified: boolean;
   avatar?: string;
@@ -33,7 +33,7 @@ export interface CreateUserRequest {
   name: string;
   email: string;
   password: string;
-  role: 'admin' | 'user' | 'moderator' | 'subscriber';
+  role: 'subscriber' | 'user' | 'customer' | 'author' | 'contributor' | 'editor' | 'administrator' | 'shop_manager' | 'group_leader' | 'student' | 'web_designer' | 'seo_manager' | 'seo_editor';
   status?: 'active' | 'inactive' | 'suspended' | 'pending';
   phone?: string;
   address?: {
@@ -50,7 +50,7 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest {
   name?: string;
   email?: string;
-  role?: 'admin' | 'user' | 'moderator' | 'subscriber';
+  role?: 'subscriber' | 'user' | 'customer' | 'author' | 'contributor' | 'editor' | 'administrator' | 'shop_manager' | 'group_leader' | 'student' | 'web_designer' | 'seo_manager' | 'seo_editor';
   status?: 'active' | 'inactive' | 'suspended' | 'pending';
   phone?: string;
   address?: {
@@ -66,7 +66,7 @@ export interface UpdateUserRequest {
 
 export interface UserFilters {
   search?: string;
-  role?: 'admin' | 'user' | 'moderator' | 'subscriber' | 'all';
+  role?: 'subscriber' | 'user' | 'customer' | 'author' | 'contributor' | 'editor' | 'administrator' | 'shop_manager' | 'group_leader' | 'student' | 'web_designer' | 'seo_manager' | 'seo_editor' | 'all';
   status?: 'active' | 'inactive' | 'suspended' | 'pending' | 'all';
   isEmailVerified?: boolean;
   dateRange?: {

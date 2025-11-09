@@ -35,6 +35,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -85,6 +95,10 @@ export default function SystemSettingsManagement() {
   const [showPolicyUrlDialog, setShowPolicyUrlDialog] = useState(false);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [showMaintenanceDialog, setShowMaintenanceDialog] = useState(false);
+
+  // Confirmation dialog states
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: string; key: string; name: string } | null>(null);
 
   // Selected items for editing
   const [selectedFeatureFlag, setSelectedFeatureFlag] =
@@ -239,6 +253,32 @@ export default function SystemSettingsManagement() {
     }
   };
 
+  const confirmDelete = (type: string, key: string, name: string) => {
+    setDeleteTarget({ type, key, name });
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    try {
+      if (deleteTarget.type === 'featureFlag') {
+        await systemSettingsService.deleteFeatureFlag(deleteTarget.key);
+        toast.success("Feature flag deleted successfully");
+      } else if (deleteTarget.type === 'policyUrl') {
+        await systemSettingsService.deletePolicyUrl(deleteTarget.key);
+        toast.success("Policy URL deleted successfully");
+      }
+
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+      loadSettings();
+    } catch (error) {
+      console.error(`Error deleting ${deleteTarget.type}:`, error);
+      toast.error(`Failed to delete ${deleteTarget.type}`);
+    }
+  };
+
   // Legal Text Management
   const handleCreateLegalText = async () => {
     try {
@@ -328,9 +368,8 @@ export default function SystemSettingsManagement() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `system-settings-backup-${
-        new Date().toISOString().split("T")[0]
-      }.json`;
+      a.download = `system-settings-backup-${new Date().toISOString().split("T")[0]
+        }.json`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -806,7 +845,7 @@ export default function SystemSettingsManagement() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  handleDeleteFeatureFlag(flag.key)
+                                  confirmDelete('featureFlag', flag.key, flag.name)
                                 }
                               >
                                 <Trash2 className="h-3 w-3" />
@@ -1317,7 +1356,7 @@ export default function SystemSettingsManagement() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleDeletePolicyUrl(url.key)}
+                                onClick={() => confirmDelete('policyUrl', url.key, url.name)}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
@@ -1414,6 +1453,24 @@ export default function SystemSettingsManagement() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteTarget?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

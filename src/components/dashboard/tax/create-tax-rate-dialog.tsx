@@ -13,6 +13,8 @@ import { Plus } from 'lucide-react';
 import { TaxRate } from '@/types/tax';
 
 interface CreateTaxRateDialogProps {
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
     onSave: (data: Partial<TaxRate>) => Promise<void>;
 }
 
@@ -38,8 +40,7 @@ const CUSTOMER_TYPES = [
     'NON_PROFIT'
 ];
 
-export function CreateTaxRateDialog({ onSave }: CreateTaxRateDialogProps) {
-    const [open, setOpen] = useState(false);
+export function CreateTaxRateDialog({ open, onOpenChange, onSave }: CreateTaxRateDialogProps) {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState<Partial<TaxRate>>({
         name: '',
@@ -58,7 +59,7 @@ export function CreateTaxRateDialog({ onSave }: CreateTaxRateDialogProps) {
         setLoading(true);
         try {
             await onSave(formData);
-            setOpen(false);
+            onOpenChange?.(false);
             setFormData({
                 name: '',
                 description: '',
@@ -84,7 +85,7 @@ export function CreateTaxRateDialog({ onSave }: CreateTaxRateDialogProps) {
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogTrigger asChild>
                 <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -234,7 +235,7 @@ export function CreateTaxRateDialog({ onSave }: CreateTaxRateDialogProps) {
                     </div>
 
                     <div className="flex justify-end space-x-2 pt-4">
-                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => onOpenChange?.(false)}>
                             Cancel
                         </Button>
                         <Button type="submit" disabled={loading}>

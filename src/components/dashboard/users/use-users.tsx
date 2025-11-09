@@ -30,6 +30,9 @@ export function useUsers(filters?: UserFilters): UseUsersReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Stringify filters to prevent infinite loop from object reference changes
+  const filtersString = JSON.stringify(filters);
+
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
@@ -73,7 +76,8 @@ export function useUsers(filters?: UserFilters): UseUsersReturn {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersString]);
 
   const createUser = async (userData: CreateUserRequest) => {
     try {

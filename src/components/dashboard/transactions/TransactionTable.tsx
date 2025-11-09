@@ -11,6 +11,7 @@ import { Eye, ArrowUpDown } from 'lucide-react';
 import { Transaction } from '@/lib/services/transactio.service';
 import { TransactionDetailsDialog } from './TransactionDetailsDialog';
 import { RefundDialog } from './RefundDialog';
+import { UpdateStatusDialog } from './UpdateStatusDialog';
 
 interface TransactionTableProps {
     transactions: Transaction[];
@@ -18,6 +19,7 @@ interface TransactionTableProps {
     pagination?: any;
     showPagination?: boolean;
     onPageChange?: (page: number) => void;
+    onRefresh?: () => void;
 }
 
 export function TransactionTable({
@@ -25,11 +27,13 @@ export function TransactionTable({
     loading,
     pagination,
     showPagination = true,
-    onPageChange
+    onPageChange,
+    onRefresh
 }: TransactionTableProps) {
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [refundOpen, setRefundOpen] = useState(false);
+    const [statusOpen, setStatusOpen] = useState(false);
 
     const getStatusVariant = (status: string) => {
         const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -44,6 +48,7 @@ export function TransactionTable({
     };
 
     const formatAmount = (amount: number, currency: string) => {
+        // Backend sends amount in dollars
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: currency || 'USD',
@@ -135,6 +140,16 @@ export function TransactionTable({
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setSelectedTransaction(transaction);
+                                                    setStatusOpen(true);
+                                                }}
+                                            >
+                                                Update Status
+                                            </Button>
                                             {transaction.status === 'succeeded' && (
                                                 <Button
                                                     variant="outline"
@@ -157,34 +172,101 @@ export function TransactionTable({
             </div>
 
             {showPagination && pagination && pagination.total > 1 && (
-                <Pagination>
-                    <PaginationContent>
-                        <PaginationItem>
-                            <PaginationPrevious
-                                onClick={() => onPageChange?.(pagination.current - 1)}
-                                className={pagination.current === 1 ? 'pointer-events-none opacity-50' : ''}
-                            />
-                        </PaginationItem>
+                <div className="flex items-center justify-between px-2 py-4">
+                    <div className="text-sm text-muted-foreground">
+                        Showing {((pagination.current - 1) * pagination.limit) + 1} to{' '}
+                        {Math.min(pagination.current * pagination.limit, pagination.count)} of{' '}
+                        {pagination.count} results
+                    </div>
 
-                        {Array.from({ length: pagination.total }, (_, i) => i + 1).map((page) => (
-                            <PaginationItem key={page}>
-                                <PaginationLink
-                                    isActive={page === pagination.current}
-                                    onClick={() => onPageChange?.(page)}
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => onPageChange?.(1)}
+                                    disabled={pagination.current === 1}
                                 >
-                                    {page}
-                                </PaginationLink>
+                                    First
+                                </Button>
                             </PaginationItem>
-                        ))}
 
-                        <PaginationItem>
-                            <PaginationNext
-                                onClick={() => onPageChange?.(pagination.current + 1)}
-                                className={pagination.current === pagination.total ? 'pointer-events-none opacity-50' : ''}
-                            />
-                        </PaginationItem>
-                    </PaginationContent>
-                </Pagination>
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    onClick={() => onPageChange?.(pagination.current - 1)}
+                                    className={pagination.current === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                />
+                            </PaginationItem>
+
+                            {(() => {
+                                const currentPage = pagination.current;
+                                const totalPages = pagination.total;
+                                const delta = 2;
+                                const range = [];
+                                const rangeWithDots = [];
+
+                                for (
+                                    let i = Math.max(2, currentPage - delta);
+                                    i <= Math.min(totalPages - 1, currentPage + delta);
+                                    i++
+                                ) {
+                                    range.push(i);
+                                }
+
+                                if (currentPage - delta > 2) {
+                                    rangeWithDots.push(1, '...');
+                                } else {
+                                    rangeWithDots.push(1);
+                                }
+
+                                rangeWithDots.push(...range);
+
+                                if (currentPage + delta < totalPages - 1) {
+                                    rangeWithDots.push('...', totalPages);
+                                } else if (totalPages > 1) {
+                                    rangeWithDots.push(totalPages);
+                                }
+
+                                return rangeWithDots.map((page, index) =>
+                                    typeof page === 'number' ? (
+                                        <PaginationItem key={page}>
+                                            <PaginationLink
+                                                isActive={page === currentPage}
+                                                onClick={() => onPageChange?.(page)}
+                                                className="cursor-pointer"
+                                            >
+                                                {page}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    ) : (
+                                        <PaginationItem key={`dots-${index}`}>
+                                            <span className="px-4">...</span>
+                                        </PaginationItem>
+                                    )
+                                );
+                            })()}
+
+                            <PaginationItem>
+                                <PaginationNext
+                                    onClick={() => onPageChange?.(pagination.current + 1)}
+                                    className={pagination.current === pagination.total ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                />
+                            </PaginationItem>
+
+                            <PaginationItem>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => onPageChange?.(pagination.total)}
+                                    disabled={pagination.current === pagination.total}
+                                >
+                                    Last
+                                </Button>
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
             )}
 
             <TransactionDetailsDialog
@@ -193,10 +275,22 @@ export function TransactionTable({
                 onOpenChange={setDetailsOpen}
             />
 
+            <UpdateStatusDialog
+                transaction={selectedTransaction}
+                open={statusOpen}
+                onOpenChange={setStatusOpen}
+                onStatusUpdate={() => {
+                    onRefresh?.();
+                }}
+            />
+
             <RefundDialog
                 transaction={selectedTransaction}
                 open={refundOpen}
                 onOpenChange={setRefundOpen}
+                onRefundSuccess={() => {
+                    onRefresh?.();
+                }}
             />
         </>
     );

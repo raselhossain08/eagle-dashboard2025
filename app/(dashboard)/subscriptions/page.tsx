@@ -9,6 +9,16 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,7 +50,9 @@ import {
   StopCircle,
   ArrowUp,
   RefreshCcw,
-  Shuffle
+  Shuffle,
+  Settings,
+  TrendingDown
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -78,8 +90,16 @@ export default function SubscriptionManagementPage() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showPauseDialog, setShowPauseDialog] = useState(false);
-  const [showDowngradeDialog, setShowDowngradeDialog] = useState(false);
   const [showPlanChangeDialog, setShowPlanChangeDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showCancelScheduledConfirm, setShowCancelScheduledConfirm] = useState(false);
+  const [cancelScheduledTarget, setCancelScheduledTarget] = useState<string | null>(null);
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [showStatusUpdateDialog, setShowStatusUpdateDialog] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [showDowngradeDialog, setShowDowngradeDialog] = useState(false);
+  const [showRenewalDialog, setShowRenewalDialog] = useState(false);
   const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
 
   // Fetch subscriptions with filters
@@ -150,20 +170,23 @@ export default function SubscriptionManagementPage() {
       }
     } catch (error) {
       console.error('Error fetching plans:', error);
+      toast.error('Failed to load available plans');
     }
   };
 
   useEffect(() => {
     // Initial load
-    if (currentPage === 1 && statusFilter === 'all') {
-      fetchSubscriptions(false); // Initial load
-      fetchAnalytics();
-      fetchAvailablePlans();
-    } else {
-      // Filter change - don't reload analytics and plans
-      fetchSubscriptions(true); // Filter change
+    fetchSubscriptions(false);
+    fetchAnalytics();
+    fetchAvailablePlans();
+  }, []);
+
+  // Separate effect for filters to avoid unnecessary reloads
+  useEffect(() => {
+    if (currentPage !== 1 || statusFilter !== 'all') {
+      fetchSubscriptions(true);
     }
-  }, [currentPage, statusFilter]); // planTypeFilter removed - it's client-side only
+  }, [currentPage, statusFilter]);
 
   // Calculate days remaining for each subscription
   const calculateDaysRemaining = (endDate: string | null): number | null => {
@@ -248,36 +271,43 @@ export default function SubscriptionManagementPage() {
   // Action handlers
   const handleUpdateSubscription = async (subscriptionId: string, updates: UpdateSubscriptionRequest) => {
     try {
+      toast.loading('Updating subscription...', { id: 'update-subscription' });
       const response = await SubscriptionService.updateSubscription(subscriptionId, updates);
 
       if (response.success) {
-        toast.success('Subscription updated successfully');
-        fetchSubscriptions();
+        toast.success('Subscription updated successfully', { id: 'update-subscription' });
+        fetchSubscriptions(false);
         setShowEditDialog(false);
       } else {
         throw new Error(response.error || 'Failed to update subscription');
       }
     } catch (error) {
       console.error('Error updating subscription:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update subscription');
+      toast.error(error instanceof Error ? error.message : 'Failed to update subscription', { id: 'update-subscription' });
     }
   };
 
   const handleCancelSubscription = async (subscriptionId: string, reason: string) => {
+    if (!reason.trim()) {
+      toast.error('Please provide a cancellation reason');
+      return;
+    }
+
     try {
+      toast.loading('Cancelling subscription...', { id: 'cancel-subscription' });
       const cancelData: CancelSubscriptionRequest = { reason };
       const response = await SubscriptionService.cancelSubscription(subscriptionId, cancelData);
 
       if (response.success) {
-        toast.success('Subscription cancelled successfully');
-        fetchSubscriptions();
+        toast.success('Subscription cancelled successfully', { id: 'cancel-subscription' });
+        fetchSubscriptions(false);
         setShowCancelDialog(false);
       } else {
         throw new Error(response.error || 'Failed to cancel subscription');
       }
     } catch (error) {
       console.error('Error cancelling subscription:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to cancel subscription');
+      toast.error(error instanceof Error ? error.message : 'Failed to cancel subscription', { id: 'cancel-subscription' });
     }
   };
 
@@ -298,12 +328,17 @@ export default function SubscriptionManagementPage() {
   };
 
   const handleSuspendSubscription = async (subscriptionId: string, reason: string) => {
+    if (!reason.trim()) {
+      toast.error('Please provide a reason for suspension');
+      return;
+    }
+
     try {
       const response = await SubscriptionService.suspendSubscription(subscriptionId, reason);
 
       if (response.success) {
         toast.success('Subscription suspended successfully');
-        fetchSubscriptions();
+        fetchSubscriptions(false);
       } else {
         throw new Error(response.error || 'Failed to suspend subscription');
       }
@@ -329,23 +364,47 @@ export default function SubscriptionManagementPage() {
     }
   };
 
-  const handleDeleteSubscription = async (subscriptionId: string) => {
-    if (!confirm('Are you sure you want to delete this subscription? This action cannot be undone.')) {
-      return;
+  const handlePauseSubscription = async (subscriptionId: string, duration: number, reason: string) => {
+    try {
+      const response = await SubscriptionService.pauseSubscription(subscriptionId, duration, reason);
+
+      if (response.success) {
+        toast.success(`Subscription paused for ${duration} days`);
+        fetchSubscriptions(false);
+        setShowPauseDialog(false);
+      } else {
+        throw new Error(response.error || 'Failed to pause subscription');
+      }
+    } catch (error) {
+      console.error('Error pausing subscription:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to pause subscription');
     }
+  };
+
+  const handleDeleteSubscription = async (subscriptionId: string) => {
+    // Set the target and show confirmation dialog
+    setDeleteTarget(subscriptionId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
 
     try {
-      const response = await SubscriptionService.deleteSubscription(subscriptionId);
+      const response = await SubscriptionService.deleteSubscription(deleteTarget);
 
       if (response.success) {
         toast.success('Subscription deleted successfully');
-        fetchSubscriptions();
+        fetchSubscriptions(false);
       } else {
         throw new Error(response.error || 'Failed to delete subscription');
       }
     } catch (error) {
       console.error('Error deleting subscription:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to delete subscription');
+    } finally {
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -367,7 +426,7 @@ export default function SubscriptionManagementPage() {
       if (response.success) {
         const changeType = effectiveDate ? 'scheduled' : 'immediate';
         toast.success(`Plan change ${changeType === 'immediate' ? 'completed' : 'scheduled'} successfully`);
-        fetchSubscriptions();
+        fetchSubscriptions(false);
         setShowPlanChangeDialog(false);
       } else {
         throw new Error(response.error || 'Failed to change plan');
@@ -379,22 +438,47 @@ export default function SubscriptionManagementPage() {
   };
 
   const handleCancelScheduledChange = async (subscriptionId: string) => {
-    if (!confirm('Are you sure you want to cancel the scheduled plan change?')) {
-      return;
-    }
+    // Set the target and show confirmation dialog
+    setCancelScheduledTarget(subscriptionId);
+    setShowCancelScheduledConfirm(true);
+  };
+
+  const confirmCancelScheduledChange = async () => {
+    if (!cancelScheduledTarget) return;
 
     try {
-      const response = await SubscriptionService.cancelScheduledPlanChange(subscriptionId);
+      const response = await SubscriptionService.cancelScheduledPlanChange(cancelScheduledTarget);
 
       if (response.success) {
         toast.success('Scheduled plan change cancelled successfully');
-        fetchSubscriptions();
+        fetchSubscriptions(false);
       } else {
         throw new Error(response.error || 'Failed to cancel scheduled change');
       }
     } catch (error) {
       console.error('Error cancelling scheduled change:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to cancel scheduled change');
+    } finally {
+      setShowCancelScheduledConfirm(false);
+      setCancelScheduledTarget(null);
+    }
+  };
+
+  const handleProcessRenewal = async (subscriptionId: string, paymentId?: string) => {
+    try {
+      toast.loading('Processing renewal...', { id: 'process-renewal' });
+      const response = await SubscriptionService.processRenewal(subscriptionId, paymentId);
+
+      if (response.success) {
+        toast.success('Subscription renewed successfully', { id: 'process-renewal' });
+        fetchSubscriptions(false);
+        setShowRenewalDialog(false);
+      } else {
+        throw new Error(response.error || 'Failed to process renewal');
+      }
+    } catch (error) {
+      console.error('Error processing renewal:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to process renewal', { id: 'process-renewal' });
     }
   };
 
@@ -477,7 +561,7 @@ export default function SubscriptionManagementPage() {
         </div>
       </div>
       {/* Analytics Cards */}
-      {analytics && analytics.overview && (
+      {analytics && analytics.overview && analytics.revenue && analytics.growth ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -545,7 +629,17 @@ export default function SubscriptionManagementPage() {
             </CardContent>
           </Card>
         </div>
-      )}
+      ) : loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="h-20 bg-gray-200 animate-pulse rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
 
       {/* Tabbed Content */}
       <Tabs defaultValue="subscriptions" className="space-y-6">
@@ -666,157 +760,283 @@ export default function SubscriptionManagementPage() {
                   </div>
                 )}
 
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Plan</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Health</TableHead>
-                      <TableHead>Billing</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>Days Left</TableHead>
-                      <TableHead>Progress</TableHead>
-                      <TableHead className="w-12">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSubscriptions.map((subscription) => (
-                      <TableRow key={subscription._id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{subscription.name || 'N/A'}</div>
-                            <div className="text-sm text-muted-foreground">{subscription.email || 'N/A'}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{subscription.currentPlan}</div>
-                            <div className="text-sm text-muted-foreground capitalize">{subscription.planType}</div>
-                            {subscription.scheduledPlanChange && (
-                              <div className="flex items-center gap-1 mt-1">
-                                <Calendar className="w-3 h-3 text-orange-500" />
-                                <span className="text-xs text-orange-600 dark:text-orange-400">
-                                  Changes to {subscription.scheduledPlanChange.newPlanName} on{' '}
-                                  {new Date(subscription.scheduledPlanChange.effectiveDate).toLocaleDateString()}
-                                </span>
+                {filteredSubscriptions.length === 0 && !filterLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-4">
+                    <Users className="w-16 h-16 text-gray-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      No Subscriptions Found
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-md">
+                      {searchTerm || statusFilter !== 'all' || planTypeFilter !== 'all' || healthFilter !== 'all'
+                        ? 'No subscriptions match your current filters. Try adjusting your search criteria.'
+                        : 'No subscriptions available yet. Start by creating your first subscription.'}
+                    </p>
+                    {(searchTerm || statusFilter !== 'all' || planTypeFilter !== 'all' || healthFilter !== 'all') && (
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => {
+                          setSearchTerm('');
+                          setStatusFilter('all');
+                          setPlanTypeFilter('all');
+                          setHealthFilter('all');
+                        }}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Clear Filters
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Plan</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Health</TableHead>
+                        <TableHead>Billing</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Start Date</TableHead>
+                        <TableHead>Days Left</TableHead>
+                        <TableHead>Progress</TableHead>
+                        <TableHead className="w-12">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSubscriptions.map((subscription) => (
+                        <TableRow key={subscription._id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{subscription.name || 'N/A'}</div>
+                              <div className="text-sm text-muted-foreground">{subscription.email || 'N/A'}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{subscription.currentPlan}</div>
+                              <div className="text-sm text-muted-foreground capitalize">{subscription.planType}</div>
+                              {subscription.scheduledPlanChange && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Calendar className="w-3 h-3 text-orange-500" />
+                                  <span className="text-xs text-orange-600 dark:text-orange-400">
+                                    Changes to {subscription.scheduledPlanChange.newPlanName} on{' '}
+                                    {new Date(subscription.scheduledPlanChange.effectiveDate).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(subscription.subscriptionStatus)}
+                          </TableCell>
+                          <TableCell>
+                            {getHealthBadge(subscription.daysRemaining ?? null, subscription.subscriptionStatus)}
+                          </TableCell>
+                          <TableCell className="capitalize">{subscription.billingCycle}</TableCell>
+                          <TableCell>${subscription.mrr || 0}</TableCell>
+                          <TableCell>{new Date(subscription.subscriptionStartDate).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            {subscription.daysRemaining !== null ? `${subscription.daysRemaining} days` : 'Lifetime'}
+                          </TableCell>
+                          <TableCell>
+                            {subscription.daysRemaining !== null && subscription.daysRemaining !== undefined && (
+                              <div className="w-20">
+                                <Progress
+                                  value={getDaysRemainingProgress(subscription.daysRemaining ?? null, subscription.billingCycle)}
+                                  className="h-2"
+                                />
                               </div>
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(subscription.subscriptionStatus)}
-                        </TableCell>
-                        <TableCell>
-                          {getHealthBadge(subscription.daysRemaining ?? null, subscription.subscriptionStatus)}
-                        </TableCell>
-                        <TableCell className="capitalize">{subscription.billingCycle}</TableCell>
-                        <TableCell>${subscription.mrr || 0}</TableCell>
-                        <TableCell>{new Date(subscription.subscriptionStartDate).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {subscription.daysRemaining !== null ? `${subscription.daysRemaining} days` : 'Lifetime'}
-                        </TableCell>
-                        <TableCell>
-                          {subscription.daysRemaining !== null && subscription.daysRemaining !== undefined && (
-                            <div className="w-20">
-                              <Progress
-                                value={getDaysRemainingProgress(subscription.daysRemaining ?? null, subscription.billingCycle)}
-                                className="h-2"
-                              />
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => {
-                                setSelectedSubscription(subscription);
-                                setShowEditDialog(true);
-                              }}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Details
-                              </DropdownMenuItem>
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-64">
+                                <DropdownMenuLabel>Subscription Actions</DropdownMenuLabel>
 
-                              {subscription.subscriptionStatus === 'active' && (
-                                <>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedSubscription(subscription);
-                                    setShowPlanChangeDialog(true);
-                                  }}>
-                                    <Shuffle className="mr-2 h-4 w-4" />
-                                    Change Plan
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedSubscription(subscription);
-                                    setShowPauseDialog(true);
-                                  }}>
-                                    <PauseCircle className="mr-2 h-4 w-4" />
-                                    Pause
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedSubscription(subscription);
-                                    setShowCancelDialog(true);
-                                  }}>
-                                    <Ban className="mr-2 h-4 w-4" />
-                                    Cancel
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleSuspendSubscription(subscription._id, 'Admin suspension')}>
-                                    <StopCircle className="mr-2 h-4 w-4" />
-                                    Suspend
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedSubscription(subscription);
-                                    setShowDowngradeDialog(true);
-                                  }}>
-                                    <ArrowDown className="mr-2 h-4 w-4" />
-                                    Schedule Downgrade
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-
-                              {(subscription.subscriptionStatus === 'cancelled' || subscription.subscriptionStatus === 'suspended') && (
-                                <DropdownMenuItem onClick={() => handleReactivateSubscription(subscription._id)}>
-                                  <RotateCcw className="mr-2 h-4 w-4" />
-                                  Reactivate
+                                {/* View & Edit */}
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedSubscription(subscription);
+                                  setShowEditDialog(true);
+                                }}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View Details
                                 </DropdownMenuItem>
-                              )}
-
-                              {subscription.subscriptionStatus === 'paused' && (
-                                <DropdownMenuItem onClick={() => handleResumeSubscription(subscription._id)}>
-                                  <PlayCircle className="mr-2 h-4 w-4" />
-                                  Resume
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedSubscription(subscription);
+                                  setShowEditDialog(true);
+                                }}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit Subscription
                                 </DropdownMenuItem>
-                              )}
 
-                              {subscription.scheduledPlanChange && (
-                                <DropdownMenuItem onClick={() => handleCancelScheduledChange(subscription._id)}>
-                                  <XCircle className="mr-2 h-4 w-4" />
-                                  Cancel Scheduled Change
+                                <DropdownMenuSeparator />
+
+                                {/* Plan Management - Show for active subscriptions */}
+                                {subscription.subscriptionStatus === 'active' && (
+                                  <>
+                                    <DropdownMenuLabel className="text-xs text-muted-foreground">Plan Management</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedSubscription(subscription);
+                                      setShowPlanChangeDialog(true);
+                                    }}>
+                                      <Shuffle className="mr-2 h-4 w-4" />
+                                      Change Plan
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedSubscription(subscription);
+                                      setShowUpgradeDialog(true);
+                                    }}>
+                                      <ArrowUp className="mr-2 h-4 w-4 text-green-600" />
+                                      <span className="text-green-600">Upgrade Plan</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedSubscription(subscription);
+                                      setShowDowngradeDialog(true);
+                                    }}>
+                                      <ArrowDown className="mr-2 h-4 w-4 text-orange-600" />
+                                      <span className="text-orange-600">Downgrade Plan</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+
+                                {/* Lifecycle Management - Always show label */}
+                                <DropdownMenuLabel className="text-xs text-muted-foreground">Lifecycle Management</DropdownMenuLabel>
+
+                                {/* Active subscription actions */}
+                                {subscription.subscriptionStatus === 'active' && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedSubscription(subscription);
+                                      setShowPauseDialog(true);
+                                    }}>
+                                      <PauseCircle className="mr-2 h-4 w-4" />
+                                      Pause Subscription
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedSubscription(subscription);
+                                      setShowSuspendDialog(true);
+                                    }}>
+                                      <StopCircle className="mr-2 h-4 w-4 text-yellow-600" />
+                                      <span className="text-yellow-600">Suspend</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedSubscription(subscription);
+                                      setShowCancelDialog(true);
+                                    }}>
+                                      <Ban className="mr-2 h-4 w-4 text-orange-600" />
+                                      <span className="text-orange-600">Cancel Subscription</span>
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+
+                                {/* Paused subscription actions */}
+                                {subscription.subscriptionStatus === 'paused' && (
+                                  <DropdownMenuItem onClick={() => handleResumeSubscription(subscription._id)}>
+                                    <PlayCircle className="mr-2 h-4 w-4 text-green-600" />
+                                    <span className="text-green-600">Resume Subscription</span>
+                                  </DropdownMenuItem>
+                                )}
+
+                                {/* Suspended subscription actions */}
+                                {subscription.subscriptionStatus === 'suspended' && (
+                                  <DropdownMenuItem onClick={() => handleResumeSubscription(subscription._id)}>
+                                    <PlayCircle className="mr-2 h-4 w-4 text-green-600" />
+                                    <span className="text-green-600">Resume Suspended</span>
+                                  </DropdownMenuItem>
+                                )}
+
+                                {/* Cancelled/Suspended/Expired - Show reactivate */}
+                                {(subscription.subscriptionStatus === 'cancelled' ||
+                                  subscription.subscriptionStatus === 'suspended' ||
+                                  subscription.subscriptionStatus === 'expired') && (
+                                    <DropdownMenuItem onClick={() => handleReactivateSubscription(subscription._id)}>
+                                      <RotateCcw className="mr-2 h-4 w-4 text-green-600" />
+                                      <span className="text-green-600">Reactivate</span>
+                                    </DropdownMenuItem>
+                                  )}
+
+                                {/* Pending/Trial - Show activation options */}
+                                {(subscription.subscriptionStatus === 'pending' || subscription.subscriptionStatus === 'trial') && (
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedSubscription(subscription);
+                                    setShowStatusUpdateDialog(true);
+                                  }}>
+                                    <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                                    <span className="text-green-600">Activate Subscription</span>
+                                  </DropdownMenuItem>
+                                )}
+
+                                {/* Renewal Actions */}
+                                {subscription.subscriptionStatus === 'active' && subscription.daysRemaining !== null && subscription.daysRemaining <= 30 && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel className="text-xs text-muted-foreground">Renewal</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedSubscription(subscription);
+                                      setShowRenewalDialog(true);
+                                    }}>
+                                      <RefreshCw className="mr-2 h-4 w-4 text-blue-600" />
+                                      <span className="text-blue-600">Process Renewal</span>
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+
+                                {/* Scheduled Changes */}
+                                {subscription.scheduledPlanChange && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel className="text-xs text-muted-foreground">Scheduled Changes</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => handleCancelScheduledChange(subscription._id)}>
+                                      <XCircle className="mr-2 h-4 w-4 text-orange-600" />
+                                      Cancel Scheduled Change
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+
+                                {/* Status Management */}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel className="text-xs text-muted-foreground">Administration</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedSubscription(subscription);
+                                  setShowStatusUpdateDialog(true);
+                                }}>
+                                  <Settings className="mr-2 h-4 w-4" />
+                                  Update Status
                                 </DropdownMenuItem>
-                              )}
 
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleDeleteSubscription(subscription._id)}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                                {/* User Details Link */}
+                                <DropdownMenuItem onClick={() => {
+                                  window.open(`/users/${subscription.userId}`, '_blank');
+                                }}>
+                                  <Users className="mr-2 h-4 w-4" />
+                                  View User Profile
+                                </DropdownMenuItem>
+
+                                {/* Danger Zone */}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel className="text-xs text-red-600">Danger Zone</DropdownMenuLabel>
+                                <DropdownMenuItem
+                                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                  onClick={() => handleDeleteSubscription(subscription._id)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete Subscription
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </div>
 
               {/* Pagination */}
@@ -944,11 +1164,7 @@ export default function SubscriptionManagementPage() {
             subscription={selectedSubscription}
             open={showPauseDialog}
             onClose={() => setShowPauseDialog(false)}
-            onSave={(id, duration, reason) => {
-              // Implementation for pause functionality
-              toast.success('Pause functionality will be implemented');
-              setShowPauseDialog(false);
-            }}
+            onSave={handlePauseSubscription}
           />
 
           <PlanChangeDialog
@@ -958,8 +1174,97 @@ export default function SubscriptionManagementPage() {
             onClose={() => setShowPlanChangeDialog(false)}
             onSave={handlePlanChange}
           />
+
+          <SuspendDialog
+            subscription={selectedSubscription}
+            open={showSuspendDialog}
+            onClose={() => setShowSuspendDialog(false)}
+            onSave={handleSuspendSubscription}
+          />
+
+          <StatusUpdateDialog
+            subscription={selectedSubscription}
+            open={showStatusUpdateDialog}
+            onClose={() => setShowStatusUpdateDialog(false)}
+            onSave={handleUpdateSubscription}
+          />
+
+          <UpgradeDialog
+            subscription={selectedSubscription}
+            availablePlans={availablePlans}
+            open={showUpgradeDialog}
+            onClose={() => setShowUpgradeDialog(false)}
+            onSave={handlePlanChange}
+          />
+
+          <DowngradeDialog
+            subscription={selectedSubscription}
+            availablePlans={availablePlans}
+            open={showDowngradeDialog}
+            onClose={() => setShowDowngradeDialog(false)}
+            onSave={handlePlanChange}
+          />
+
+          <RenewalDialog
+            subscription={selectedSubscription}
+            open={showRenewalDialog}
+            onClose={() => setShowRenewalDialog(false)}
+            onSave={handleProcessRenewal}
+          />
         </>
       )}
+
+      {/* Delete Confirmation AlertDialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Subscription</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this subscription? This action cannot be undone and will permanently remove all subscription data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowDeleteConfirm(false);
+              setDeleteTarget(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete Subscription
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Scheduled Change Confirmation AlertDialog */}
+      <AlertDialog open={showCancelScheduledConfirm} onOpenChange={setShowCancelScheduledConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Scheduled Plan Change</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel the scheduled plan change? The subscription will remain on its current plan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowCancelScheduledConfirm(false);
+              setCancelScheduledTarget(null);
+            }}>
+              Keep Scheduled Change
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancelScheduledChange}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              Cancel Scheduled Change
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1439,6 +1744,723 @@ function PlanChangeDialog({ subscription, availablePlans, open, onClose, onSave 
             ].filter(Boolean).join(' ')}
           >
             {changeType === 'immediate' ? 'Change Plan Now' : 'Schedule Plan Change'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Suspend Dialog Component
+function SuspendDialog({ subscription, open, onClose, onSave }: {
+  subscription: Subscription;
+  open: boolean;
+  onClose: () => void;
+  onSave: (id: string, reason: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <StopCircle className="w-5 h-5 text-yellow-600" />
+            Suspend Subscription
+          </DialogTitle>
+          <DialogDescription>
+            Temporarily suspend {subscription.name || 'this user'}'s subscription. They will not be charged during suspension.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              <strong>Note:</strong> Suspension is different from pause. Suspended subscriptions require manual reactivation.
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="suspend-reason">Suspension Reason *</Label>
+            <Textarea
+              id="suspend-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g., Payment failed, User requested, Policy violation..."
+              required
+              rows={4}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => onSave(subscription._id, reason)}
+            disabled={!reason.trim()}
+            className="bg-yellow-600 hover:bg-yellow-700 text-white"
+          >
+            Suspend Subscription
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Status Update Dialog Component
+function StatusUpdateDialog({ subscription, open, onClose, onSave }: {
+  subscription: Subscription;
+  open: boolean;
+  onClose: () => void;
+  onSave: (id: string, updates: UpdateSubscriptionRequest) => void;
+}) {
+  const [newStatus, setNewStatus] = useState(subscription.subscriptionStatus);
+  const [adminNotes, setAdminNotes] = useState('');
+
+  const statusOptions = [
+    { value: 'active', label: 'Active', icon: CheckCircle, color: 'text-green-600' },
+    { value: 'pending', label: 'Pending', icon: Clock, color: 'text-yellow-600' },
+    { value: 'suspended', label: 'Suspended', icon: StopCircle, color: 'text-orange-600' },
+    { value: 'cancelled', label: 'Cancelled', icon: XCircle, color: 'text-red-600' },
+    { value: 'expired', label: 'Expired', icon: Clock, color: 'text-gray-600' },
+    { value: 'trial', label: 'Trial', icon: Zap, color: 'text-blue-600' },
+    { value: 'paused', label: 'Paused', icon: PauseCircle, color: 'text-orange-600' }
+  ];
+
+  const handleSubmit = () => {
+    if (newStatus === subscription.subscriptionStatus && !adminNotes.trim()) {
+      toast.error('No changes to save');
+      return;
+    }
+
+    onSave(subscription._id, {
+      status: newStatus,
+      adminNotes: adminNotes.trim() || undefined
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Update Subscription Status
+          </DialogTitle>
+          <DialogDescription>
+            Change the status for {subscription.name || 'this user'}'s subscription
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Current Status */}
+          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Current Status</p>
+            <Badge className="bg-blue-100 text-blue-800">
+              {subscription.subscriptionStatus}
+            </Badge>
+          </div>
+
+          {/* New Status Selection */}
+          <div>
+            <Label htmlFor="status-select">New Status *</Label>
+            <Select value={newStatus} onValueChange={setNewStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map(option => {
+                  const Icon = option.icon;
+                  return (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex items-center gap-2">
+                        <Icon className={`w-4 h-4 ${option.color}`} />
+                        <span>{option.label}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Admin Notes */}
+          <div>
+            <Label htmlFor="status-notes">Admin Notes</Label>
+            <Textarea
+              id="status-notes"
+              value={adminNotes}
+              onChange={(e) => setAdminNotes(e.target.value)}
+              placeholder="Add notes about this status change..."
+              rows={3}
+            />
+          </div>
+
+          {/* Warning for status changes */}
+          {newStatus !== subscription.subscriptionStatus && (
+            <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-200 dark:border-orange-800">
+              <p className="text-sm text-orange-800 dark:text-orange-200">
+                <strong>Warning:</strong> Changing status manually may affect billing and access. Make sure this is intentional.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={newStatus === subscription.subscriptionStatus && !adminNotes.trim()}
+          >
+            Update Status
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Upgrade Dialog Component
+function UpgradeDialog({ subscription, availablePlans, open, onClose, onSave }: {
+  subscription: Subscription;
+  availablePlans: Plan[];
+  open: boolean;
+  onClose: () => void;
+  onSave: (subscriptionId: string, newPlanId: string, newBillingCycle: string, effectiveDate?: string) => void;
+}) {
+  const currentPlan = availablePlans.find(
+    plan => plan.displayName === subscription.currentPlan || plan.name === subscription.currentPlan
+  );
+
+  // Filter plans that are upgrades (higher price or access level)
+  const upgradePlans = availablePlans.filter(plan => {
+    if (!currentPlan) return false;
+
+    // Get minimum price for comparison
+    const currentMinPrice = Math.min(
+      currentPlan.pricing.monthly?.price || Infinity,
+      currentPlan.pricing.annual?.price || Infinity
+    );
+    const planMinPrice = Math.min(
+      plan.pricing.monthly?.price || Infinity,
+      plan.pricing.annual?.price || Infinity
+    );
+
+    return (
+      plan._id !== currentPlan._id &&
+      (plan.accessLevel > currentPlan.accessLevel || planMinPrice > currentMinPrice)
+    );
+  });
+
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual' | 'oneTime'>('monthly');
+
+  const selectedPlan = upgradePlans.find(plan => plan._id === selectedPlanId);
+
+  const getAvailableBillingCycles = (plan: Plan) => {
+    const cycles: Array<{ value: string; label: string; price: number }> = [];
+
+    if (plan.pricing.monthly?.price !== undefined) {
+      cycles.push({ value: 'monthly', label: 'Monthly', price: plan.pricing.monthly.price });
+    }
+    if (plan.pricing.annual?.price !== undefined) {
+      cycles.push({ value: 'annual', label: 'Annual', price: plan.pricing.annual.price });
+    }
+    if (plan.pricing.oneTime?.price !== undefined) {
+      cycles.push({ value: 'oneTime', label: 'One Time', price: plan.pricing.oneTime.price });
+    }
+
+    return cycles;
+  };
+
+  const availableCycles = selectedPlan ? getAvailableBillingCycles(selectedPlan) : [];
+
+  const getSelectedPrice = (): number => {
+    if (!selectedPlan) return 0;
+    const pricingOption = selectedPlan.pricing[billingCycle as keyof typeof selectedPlan.pricing];
+    return pricingOption?.price || 0;
+  };
+
+  const newPrice = getSelectedPrice();
+  const currentPrice = subscription.mrr || 0;
+  const priceDifference = newPrice - currentPrice;
+
+  const handleSubmit = () => {
+    if (!selectedPlanId || !billingCycle) {
+      toast.error('Please select a plan and billing cycle');
+      return;
+    }
+    onSave(subscription._id, selectedPlanId, billingCycle);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowUp className="w-5 h-5 text-green-600" />
+            Upgrade Subscription
+          </DialogTitle>
+          <DialogDescription>
+            Upgrade {subscription.name || 'this user'} to a better plan with more features
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Current Plan */}
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <h3 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Current Plan</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold">{subscription.currentPlan}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {subscription.billingCycle} • ${subscription.mrr}
+                </p>
+              </div>
+              <Badge className="bg-blue-100 text-blue-800">Current</Badge>
+            </div>
+          </div>
+
+          {upgradePlans.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600 dark:text-gray-400">
+                No upgrade options available. User is already on the highest tier.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Plan Selection */}
+              <div>
+                <Label htmlFor="upgrade-plan">Select Upgrade Plan *</Label>
+                <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose an upgrade plan..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {upgradePlans.map((plan) => (
+                      <SelectItem key={plan._id} value={plan._id}>
+                        <div className="flex items-center gap-2">
+                          <ArrowUp className="w-4 h-4 text-green-600" />
+                          <span className="font-medium">{plan.displayName || plan.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Billing Cycle */}
+              {selectedPlan && (
+                <div>
+                  <Label htmlFor="upgrade-billing">Billing Cycle *</Label>
+                  <Select value={billingCycle} onValueChange={(value: 'monthly' | 'annual' | 'oneTime') => setBillingCycle(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCycles.map((cycle) => (
+                        <SelectItem key={cycle.value} value={cycle.value}>
+                          {cycle.label} - ${cycle.price}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Price Comparison */}
+              {selectedPlan && (
+                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                  <h3 className="font-medium text-sm text-green-800 dark:text-green-200 mb-3">Upgrade Summary</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Current Price:</span>
+                      <span className="font-medium">${currentPrice}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">New Price:</span>
+                      <span className="font-medium">${newPrice}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 mt-2">
+                      <span className="font-medium">Additional Cost:</span>
+                      <span className="font-bold text-green-600">+${priceDifference}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Features Preview */}
+              {selectedPlan && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <h3 className="font-medium text-sm text-blue-800 dark:text-blue-200 mb-2">New Features</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedPlan.features.slice(0, 6).map((feature, index) => (
+                      <div key={index} className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="w-3 h-3 text-blue-600" />
+                        <span className="text-blue-800 dark:text-blue-200">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!selectedPlanId || !billingCycle || upgradePlans.length === 0}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            Upgrade Now
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Downgrade Dialog Component
+function DowngradeDialog({ subscription, availablePlans, open, onClose, onSave }: {
+  subscription: Subscription;
+  availablePlans: Plan[];
+  open: boolean;
+  onClose: () => void;
+  onSave: (subscriptionId: string, newPlanId: string, newBillingCycle: string, effectiveDate?: string) => void;
+}) {
+  const currentPlan = availablePlans.find(
+    plan => plan.displayName === subscription.currentPlan || plan.name === subscription.currentPlan
+  );
+
+  // Filter plans that are downgrades (lower price or access level)
+  const downgradePlans = availablePlans.filter(plan => {
+    if (!currentPlan) return false;
+
+    const currentMinPrice = Math.min(
+      currentPlan.pricing.monthly?.price || Infinity,
+      currentPlan.pricing.annual?.price || Infinity
+    );
+    const planMinPrice = Math.min(
+      plan.pricing.monthly?.price || Infinity,
+      plan.pricing.annual?.price || Infinity
+    );
+
+    return (
+      plan._id !== currentPlan._id &&
+      (plan.accessLevel < currentPlan.accessLevel || planMinPrice < currentMinPrice)
+    );
+  });
+
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual' | 'oneTime'>('monthly');
+  const [effectiveDate, setEffectiveDate] = useState('');
+  const [changeType, setChangeType] = useState<'immediate' | 'scheduled'>('scheduled');
+
+  const selectedPlan = downgradePlans.find(plan => plan._id === selectedPlanId);
+
+  const getAvailableBillingCycles = (plan: Plan) => {
+    const cycles: Array<{ value: string; label: string; price: number }> = [];
+
+    if (plan.pricing.monthly?.price !== undefined) {
+      cycles.push({ value: 'monthly', label: 'Monthly', price: plan.pricing.monthly.price });
+    }
+    if (plan.pricing.annual?.price !== undefined) {
+      cycles.push({ value: 'annual', label: 'Annual', price: plan.pricing.annual.price });
+    }
+    if (plan.pricing.oneTime?.price !== undefined) {
+      cycles.push({ value: 'oneTime', label: 'One Time', price: plan.pricing.oneTime.price });
+    }
+
+    return cycles;
+  };
+
+  const availableCycles = selectedPlan ? getAvailableBillingCycles(selectedPlan) : [];
+
+  const getSelectedPrice = (): number => {
+    if (!selectedPlan) return 0;
+    const pricingOption = selectedPlan.pricing[billingCycle as keyof typeof selectedPlan.pricing];
+    return pricingOption?.price || 0;
+  };
+
+  const newPrice = getSelectedPrice();
+  const currentPrice = subscription.mrr || 0;
+  const priceDifference = currentPrice - newPrice;
+
+  const handleSubmit = () => {
+    if (!selectedPlanId || !billingCycle) {
+      toast.error('Please select a plan and billing cycle');
+      return;
+    }
+    if (changeType === 'scheduled' && !effectiveDate) {
+      toast.error('Please select an effective date');
+      return;
+    }
+
+    const effectiveDateValue = changeType === 'scheduled' ? effectiveDate : undefined;
+    onSave(subscription._id, selectedPlanId, billingCycle, effectiveDateValue);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowDown className="w-5 h-5 text-orange-600" />
+            Downgrade Subscription
+          </DialogTitle>
+          <DialogDescription>
+            Downgrade {subscription.name || 'this user'} to a lower tier plan
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Current Plan */}
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <h3 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Current Plan</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold">{subscription.currentPlan}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {subscription.billingCycle} • ${subscription.mrr}
+                </p>
+              </div>
+              <Badge className="bg-blue-100 text-blue-800">Current</Badge>
+            </div>
+          </div>
+
+          {downgradePlans.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600 dark:text-gray-400">
+                No downgrade options available. User is already on the lowest tier.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Change Type */}
+              <div>
+                <Label>When to apply downgrade? *</Label>
+                <Select value={changeType} onValueChange={(value: 'immediate' | 'scheduled') => setChangeType(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scheduled">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        At End of Billing Period (Recommended)
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="immediate">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4" />
+                        Immediately
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Effective Date */}
+              {changeType === 'scheduled' && (
+                <div>
+                  <Label htmlFor="downgrade-date">Effective Date *</Label>
+                  <Input
+                    id="downgrade-date"
+                    type="date"
+                    value={effectiveDate}
+                    onChange={(e) => setEffectiveDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+              )}
+
+              {/* Plan Selection */}
+              <div>
+                <Label htmlFor="downgrade-plan">Select Downgrade Plan *</Label>
+                <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a downgrade plan..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {downgradePlans.map((plan) => (
+                      <SelectItem key={plan._id} value={plan._id}>
+                        <div className="flex items-center gap-2">
+                          <ArrowDown className="w-4 h-4 text-orange-600" />
+                          <span className="font-medium">{plan.displayName || plan.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Billing Cycle */}
+              {selectedPlan && (
+                <div>
+                  <Label htmlFor="downgrade-billing">Billing Cycle *</Label>
+                  <Select value={billingCycle} onValueChange={(value: 'monthly' | 'annual' | 'oneTime') => setBillingCycle(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCycles.map((cycle) => (
+                        <SelectItem key={cycle.value} value={cycle.value}>
+                          {cycle.label} - ${cycle.price}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Price Comparison */}
+              {selectedPlan && (
+                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <h3 className="font-medium text-sm text-orange-800 dark:text-orange-200 mb-3">Downgrade Summary</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Current Price:</span>
+                      <span className="font-medium">${currentPrice}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">New Price:</span>
+                      <span className="font-medium">${newPrice}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 mt-2">
+                      <span className="font-medium">Savings:</span>
+                      <span className="font-bold text-green-600">-${priceDifference}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Warning */}
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <strong>Warning:</strong> Downgrading will remove access to premium features. {changeType === 'scheduled' ? 'Changes will take effect on the selected date.' : 'Changes will take effect immediately.'}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!selectedPlanId || !billingCycle || (changeType === 'scheduled' && !effectiveDate) || downgradePlans.length === 0}
+            className="bg-orange-600 hover:bg-orange-700 text-white"
+          >
+            {changeType === 'immediate' ? 'Downgrade Now' : 'Schedule Downgrade'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Renewal Dialog Component
+function RenewalDialog({ subscription, open, onClose, onSave }: {
+  subscription: Subscription;
+  open: boolean;
+  onClose: () => void;
+  onSave: (id: string, paymentId?: string) => void;
+}) {
+  const [paymentId, setPaymentId] = useState('');
+  const [confirmRenewal, setConfirmRenewal] = useState(false);
+
+  const handleSubmit = () => {
+    if (!confirmRenewal) {
+      toast.error('Please confirm renewal');
+      return;
+    }
+    onSave(subscription._id, paymentId.trim() || undefined);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <RefreshCw className="w-5 h-5 text-blue-600" />
+            Process Subscription Renewal
+          </DialogTitle>
+          <DialogDescription>
+            Manually process renewal for {subscription.name || 'this user'}'s subscription
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Current Subscription Info */}
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <h3 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-3">Subscription Details</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Plan:</span>
+                <span className="font-medium">{subscription.currentPlan}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Current Price:</span>
+                <span className="font-medium">${subscription.mrr || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Billing Cycle:</span>
+                <span className="font-medium capitalize">{subscription.billingCycle}</span>
+              </div>
+              {subscription.subscriptionEndDate && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Expires:</span>
+                  <span className="font-medium">
+                    {new Date(subscription.subscriptionEndDate).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Payment ID (Optional) */}
+          <div>
+            <Label htmlFor="paymentId">Payment ID (Optional)</Label>
+            <Input
+              id="paymentId"
+              value={paymentId}
+              onChange={(e) => setPaymentId(e.target.value)}
+              placeholder="Enter payment transaction ID if available..."
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Leave blank to process renewal without payment reference
+            </p>
+          </div>
+
+          {/* Confirmation Checkbox */}
+          <div className="flex items-start space-x-2">
+            <input
+              type="checkbox"
+              id="confirmRenewal"
+              checked={confirmRenewal}
+              onChange={(e) => setConfirmRenewal(e.target.checked)}
+              className="mt-1"
+            />
+            <Label htmlFor="confirmRenewal" className="text-sm cursor-pointer">
+              I confirm that I want to renew this subscription. This will extend the subscription period and may charge the user.
+            </Label>
+          </div>
+
+          {/* Info Notice */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              <strong>Note:</strong> This will extend the subscription by one billing cycle ({subscription.billingCycle === 'monthly' ? '1 month' : '1 year'}) and update the end date accordingly.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!confirmRenewal}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Process Renewal
           </Button>
         </DialogFooter>
       </DialogContent>

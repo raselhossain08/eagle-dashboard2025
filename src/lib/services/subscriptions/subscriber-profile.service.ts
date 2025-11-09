@@ -1,4 +1,4 @@
-import { clientCookies } from '../../utils/cookies';
+import ApiService from '../shared/api.service';
 
 // Types
 export interface Address {
@@ -217,7 +217,7 @@ export interface SubscriberProfile {
   profileViewCount?: number;
   createdAt?: string;
   updatedAt?: string;
-  
+
   // Virtual fields
   fullName?: string;
   age?: number;
@@ -264,60 +264,23 @@ export interface UpdateKycStatusData {
   riskScore?: number;
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const BASE_PATH = '/subscriber-profiles';
 
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
 class SubscriberProfileService {
-  private getAuthHeaders(): HeadersInit {
-    const token = clientCookies.getToken();
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    return headers;
-  }
-
   // Get current user's profile
-  async getMyProfile(): Promise<{ success: boolean; data: SubscriberProfile }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/my-profile`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching my profile:', error);
-      throw error;
-    }
+  async getMyProfile(): Promise<ApiResponse<SubscriberProfile>> {
+    return ApiService.get<ApiResponse<SubscriberProfile>>(`${BASE_PATH}/my-profile`);
   }
 
   // Update current user's profile
-  async updateMyProfile(data: Partial<SubscriberProfile>): Promise<{ success: boolean; data: SubscriberProfile }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/my-profile`, {
-        method: 'PUT',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error updating my profile:', error);
-      throw error;
-    }
+  async updateMyProfile(data: Partial<SubscriberProfile>): Promise<ApiResponse<SubscriberProfile>> {
+    return ApiService.put<ApiResponse<SubscriberProfile>>(`${BASE_PATH}/my-profile`, data);
   }
 
   // Get all profiles (admin only)
@@ -330,177 +293,55 @@ class SubscriberProfileService {
     completionRange?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
-  }): Promise<{ success: boolean; data: any }> {
-    try {
-      const queryParams = new URLSearchParams();
-      if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value !== undefined && value !== '') {
-            queryParams.append(key, String(value));
-          }
-        });
-      }
-
-      const response = await fetch(`${BASE_URL}${BASE_PATH}?${queryParams}`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
+  }): Promise<ApiResponse<any>> {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          queryParams.append(key, String(value));
+        }
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching all profiles:', error);
-      throw error;
     }
+    const query = queryParams.toString();
+    return ApiService.get<ApiResponse<any>>(`${BASE_PATH}${query ? `?${query}` : ''}`);
   }
 
   // Get profile by ID (admin only)
-  async getProfileById(id: string): Promise<{ success: boolean; data: SubscriberProfile }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/${id}`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching profile by ID:', error);
-      throw error;
-    }
+  async getProfileById(id: string): Promise<ApiResponse<SubscriberProfile>> {
+    return ApiService.get<ApiResponse<SubscriberProfile>>(`${BASE_PATH}/${id}`);
   }
 
   // Update profile by ID (admin only)
-  async updateProfileById(id: string, data: Partial<SubscriberProfile>): Promise<{ success: boolean; data: SubscriberProfile }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/${id}`, {
-        method: 'PUT',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error updating profile by ID:', error);
-      throw error;
-    }
+  async updateProfileById(id: string, data: Partial<SubscriberProfile>): Promise<ApiResponse<SubscriberProfile>> {
+    return ApiService.put<ApiResponse<SubscriberProfile>>(`${BASE_PATH}/${id}`, data);
   }
 
   // Update KYC status (admin only)
-  async updateKycStatus(id: string, data: UpdateKycStatusData): Promise<{ success: boolean; data: SubscriberProfile }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/${id}/kyc-status`, {
-        method: 'PUT',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error updating KYC status:', error);
-      throw error;
-    }
+  async updateKycStatus(id: string, data: UpdateKycStatusData): Promise<ApiResponse<SubscriberProfile>> {
+    return ApiService.put<ApiResponse<SubscriberProfile>>(`${BASE_PATH}/${id}/kyc-status`, data);
   }
 
   // Complete KYC step
-  async completeKycStep(step: string): Promise<{ success: boolean; data: SubscriberProfile }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/kyc/complete-step`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ step }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error completing KYC step:', error);
-      throw error;
-    }
+  async completeKycStep(step: string): Promise<ApiResponse<SubscriberProfile>> {
+    return ApiService.post<ApiResponse<SubscriberProfile>>(`${BASE_PATH}/kyc/complete-step`, { step });
   }
 
   // Add identity document
-  async addIdentityDocument(data: CreateIdentityDocumentData): Promise<{ success: boolean; data: SubscriberProfile }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/identity-documents`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error adding identity document:', error);
-      throw error;
-    }
+  async addIdentityDocument(data: CreateIdentityDocumentData): Promise<ApiResponse<SubscriberProfile>> {
+    return ApiService.post<ApiResponse<SubscriberProfile>>(`${BASE_PATH}/identity-documents`, data);
   }
 
   // Verify identity document (admin only)
-  async verifyIdentityDocument(profileId: string, documentId: string, verified: boolean): Promise<{ success: boolean; data: SubscriberProfile }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/${profileId}/identity-documents/${documentId}/verify`, {
-        method: 'PUT',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ verified }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error verifying identity document:', error);
-      throw error;
-    }
+  async verifyIdentityDocument(profileId: string, documentId: string, verified: boolean): Promise<ApiResponse<SubscriberProfile>> {
+    return ApiService.put<ApiResponse<SubscriberProfile>>(
+      `${BASE_PATH}/${profileId}/identity-documents/${documentId}/verify`,
+      { verified }
+    );
   }
 
   // Get profile analytics (admin only)
-  async getProfileAnalytics(): Promise<{ success: boolean; data: ProfileAnalytics }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/analytics`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching profile analytics:', error);
-      throw error;
-    }
+  async getProfileAnalytics(): Promise<ApiResponse<ProfileAnalytics>> {
+    return ApiService.get<ApiResponse<ProfileAnalytics>>(`${BASE_PATH}/analytics`);
   }
 
   // Get KYC queue (admin only)
@@ -509,73 +350,27 @@ class SubscriberProfileService {
     limit?: number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
-  }): Promise<{ success: boolean; data: any }> {
-    try {
-      const queryParams = new URLSearchParams();
-      if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value !== undefined && value !== '') {
-            queryParams.append(key, String(value));
-          }
-        });
-      }
-
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/kyc-queue?${queryParams}`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
+  }): Promise<ApiResponse<any>> {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          queryParams.append(key, String(value));
+        }
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching KYC queue:', error);
-      throw error;
     }
+    const query = queryParams.toString();
+    return ApiService.get<ApiResponse<any>>(`${BASE_PATH}/kyc-queue${query ? `?${query}` : ''}`);
   }
 
   // Export profile data
-  async exportMyProfile(): Promise<{ success: boolean; data: any }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/my-profile/export`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error exporting my profile:', error);
-      throw error;
-    }
+  async exportMyProfile(): Promise<ApiResponse<any>> {
+    return ApiService.get<ApiResponse<any>>(`${BASE_PATH}/my-profile/export`);
   }
 
   // Delete profile (admin only)
   async deleteProfile(id: string, reason?: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const response = await fetch(`${BASE_URL}${BASE_PATH}/${id}`, {
-        method: 'DELETE',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ reason }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error deleting profile:', error);
-      throw error;
-    }
+    return ApiService.delete<{ success: boolean; message: string }>(`${BASE_PATH}/${id}`, { reason });
   }
 
   // Utility methods for UI formatting

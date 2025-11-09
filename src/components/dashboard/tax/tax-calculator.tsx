@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTaxCalculation } from '@/hooks/useTaxCalculation';
 import { Calculator, DollarSign, Percent } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function TaxCalculator() {
     const [formData, setFormData] = useState({
@@ -24,14 +25,19 @@ export function TaxCalculator() {
 
     const handleCalculate = async (e: React.FormEvent) => {
         e.preventDefault();
-        await calculateTax({
-            amount: parseFloat(formData.amount),
-            country: formData.country,
-            state: formData.state || undefined,
-            taxType: formData.taxType || undefined,
-            productType: formData.productType || undefined,
-            customerType: formData.customerType || undefined,
-        });
+        try {
+            await calculateTax({
+                amount: parseFloat(formData.amount),
+                country: formData.country,
+                state: formData.state || undefined,
+                taxType: formData.taxType || undefined,
+                productType: formData.productType || undefined,
+                customerType: formData.customerType || undefined,
+            });
+            toast.success('Tax calculated successfully');
+        } catch (err) {
+            toast.error('Failed to calculate tax');
+        }
     };
 
     return (
