@@ -1,5 +1,4 @@
-﻿// Use relative /api path to leverage Next.js proxy and avoid CORS issues
-const API_BASE_URL = '/api';
+﻿const API_BASE_URL = '/api';
 
 class ApiService {
   private static getToken(): string | null {
