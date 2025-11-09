@@ -1,9 +1,10 @@
-﻿const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+﻿// Use relative /api path to leverage Next.js proxy and avoid CORS issues
+const API_BASE_URL = '/api';
 
 class ApiService {
   private static getToken(): string | null {
     if (typeof window === 'undefined') return null;
-    
+
     // Use cookies instead of localStorage for better security
     try {
       const cookies = document.cookie.split(';');
@@ -46,7 +47,7 @@ class ApiService {
   private static async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`;
-      
+
       try {
         const error = await response.json();
         errorMessage = error.message || error.error || errorMessage;
@@ -150,11 +151,11 @@ class ApiService {
       headers: this.getHeaders(includeAuth),
       credentials: 'include',
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     return response.blob();
   }
 

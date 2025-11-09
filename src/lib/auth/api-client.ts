@@ -13,8 +13,9 @@
 import EagleTokenManager, { AuthState } from './token-manager';
 
 // API Configuration
+// Use relative /api path to leverage Next.js proxy and avoid CORS issues
 const API_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+  baseURL: '/api', // Uses Next.js rewrite rule to proxy to backend
   timeout: 30000, // 30 seconds
   retries: 3,
   retryDelay: 1000, // 1 second

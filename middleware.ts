@@ -20,7 +20,7 @@ const ignoreRoutes = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
+
   // Skip middleware for browser/devtools requests
   const shouldIgnore = ignoreRoutes.some(route => pathname.startsWith(route))
   if (shouldIgnore) {
@@ -30,20 +30,20 @@ export async function middleware(request: NextRequest) {
   const token = getTokenFromRequest(request)
 
   // Check if current route is public
-  const isPublicRoute = publicRoutes.some(route => 
+  const isPublicRoute = publicRoutes.some(route =>
     pathname.startsWith(route)
   )
 
-  const isAuthRoute = authRoutes.some(route => 
+  const isAuthRoute = authRoutes.some(route =>
     pathname.startsWith(route)
   )
-  
+
   console.log(`🔍 Middleware check: ${pathname}`)
   console.log(`   Token: ${token ? `EXISTS (${token.substring(0, 20)}...)` : 'NONE'}`)
   console.log(`   Is public route: ${isPublicRoute}`)
   console.log(`   Is auth route: ${isAuthRoute}`)
   console.log(`   JWT_SECRET available: ${!!process.env.JWT_SECRET}`)
-  
+
   // If token exists, let's also check the user data
   if (token) {
     const userData = getUserDataFromRequest(request)
@@ -59,15 +59,15 @@ export async function middleware(request: NextRequest) {
 
   // Handle API routes
   if (isApiRoute) {
-    // Allow public API routes
-    if (pathname.startsWith('/api/auth')) {
+    // Allow public API routes (including admin auth)
+    if (pathname.startsWith('/api/auth') || pathname.startsWith('/api/admin/auth')) {
       return NextResponse.next()
     }
 
     // Protect other API routes
     if (!token) {
       return NextResponse.json(
-        { error: 'Unauthorized' }, 
+        { error: 'Unauthorized' },
         { status: 401 }
       )
     }
@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
     // For API routes, just check if token exists
     // Let the actual API route handlers do the JWT verification
     const response = NextResponse.next()
-    
+
     if (token) {
       const userData = getUserDataFromRequest(request)
       if (userData?.id) {
@@ -84,7 +84,7 @@ export async function middleware(request: NextRequest) {
         response.headers.set('x-user-role', userData.adminLevel || '')
       }
     }
-    
+
     return response
   }
 
@@ -104,11 +104,11 @@ export async function middleware(request: NextRequest) {
 
   if (token && !isPublicRoute && !isAuthRoute) {
     console.log(`🔐 Token exists for protected route: ${pathname}`)
-    
+
     // Get user data from cookie (already stored during login)
     const userData = getUserDataFromRequest(request)
     console.log(`   User data from cookie: ${userData ? 'EXISTS' : 'NONE'}`)
-    
+
     if (!userData || !userData.id) {
       console.log(`❌ No valid user data in cookie, clearing and redirecting to login`)
       // No valid user data - clear cookies and redirect
@@ -155,7 +155,7 @@ function checkPermissions(pathname: string, user: any): boolean {
   // For now, allow all authenticated users to access dashboard routes
   // You can implement more granular permissions here
   const allowedRoutes = ['/', '/dashboard', '/profile', '/settings']
-  
+
   if (allowedRoutes.some(route => pathname === route || pathname.startsWith(route))) {
     return true
   }
@@ -163,8 +163,8 @@ function checkPermissions(pathname: string, user: any): boolean {
   // Route-based permission checks for specific admin areas
   const adminRoutes = ['/admin', '/users', '/billing', '/security', '/system-settings']
   if (adminRoutes.some(route => pathname.startsWith(route))) {
-    return user.adminLevel === 'admin' || user.adminLevel === 'super_admin' || 
-           user.role === 'admin' || user.role === 'super_admin'
+    return user.adminLevel === 'admin' || user.adminLevel === 'super_admin' ||
+      user.role === 'admin' || user.role === 'super_admin'
   }
 
   return true

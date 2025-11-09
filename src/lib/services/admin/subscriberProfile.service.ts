@@ -223,7 +223,7 @@ class SubscriberProfileService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}${this.endpoint}/export?${params.toString()}`, {
+    const response = await fetch(`/api${this.endpoint}/export?${params.toString()}`, {
       method: 'GET',
       headers,
     });
