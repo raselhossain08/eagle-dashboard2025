@@ -112,7 +112,7 @@ function LoginForm() {
         // Redirect to admin dashboard
         setTimeout(() => {
           console.log("🔧 DEV MODE: Redirecting to admin dashboard");
-          // window.location.href = "https://admin.eagleinvest.us/";
+           window.location.href = "https://admin.eagleinvest.us/";
         }, 100);
         return;
       }
@@ -128,7 +128,7 @@ function LoginForm() {
       // Redirect to admin dashboard
       setTimeout(() => {
         console.log("🔄 Redirecting to admin dashboard");
-        // window.location.href = "https://admin.eagleinvest.us/";
+         window.location.href = "https://admin.eagleinvest.us/";
       }, 100);
     } catch (error: any) {
       console.error("Login error:", error);
