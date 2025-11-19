@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,32 +26,14 @@ import {
   TestTube,
   CheckCircle2,
   XCircle,
-  Info
+  Info,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-interface PaymentSettings {
-  paypal: {
-    enabled: boolean;
-    mode: 'sandbox' | 'live';
-    clientId: string;
-    clientSecret: string;
-    apiUrl?: string;
-    configured: boolean;
-  };
-  stripe: {
-    enabled: boolean;
-    mode: 'test' | 'live';
-    publishableKey: string;
-    secretKey: string;
-    webhookSecret: string;
-    configured: boolean;
-  };
-  lastUpdated?: string;
-}
+import paymentSettingsService, {
+  PaymentSettings,
+} from "@/lib/services/payment-settings.service";
+import { loadStripe } from "@stripe/stripe-js";
 
 export default function PaymentProcessorsPage() {
   const { toast } = useToast();
@@ -61,19 +49,19 @@ export default function PaymentProcessorsPage() {
   const [settings, setSettings] = useState<PaymentSettings>({
     paypal: {
       enabled: false,
-      mode: 'sandbox',
-      clientId: '',
-      clientSecret: '',
-      configured: false
+      mode: "sandbox",
+      clientId: "",
+      clientSecret: "",
+      configured: false,
     },
     stripe: {
       enabled: false,
-      mode: 'test',
-      publishableKey: '',
-      secretKey: '',
-      webhookSecret: '',
-      configured: false
-    }
+      mode: "test",
+      publishableKey: "",
+      secretKey: "",
+      webhookSecret: "",
+      configured: false,
+    },
   });
 
   // Fetch settings on mount
@@ -84,23 +72,15 @@ export default function PaymentProcessorsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const response = await paymentSettingsService.getSettings();
 
-      const response = await fetch(`${API_URL}/payment-settings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSettings(data.data);
+      if (response.success) {
+        setSettings(response.data);
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to load payment settings"
+        description: error.message || "Failed to load payment settings",
       });
     } finally {
       setLoading(false);
@@ -110,80 +90,111 @@ export default function PaymentProcessorsPage() {
   const saveSettings = async () => {
     try {
       setSaving(true);
-      const token = localStorage.getItem('token');
 
-      const response = await fetch(`${API_URL}/payment-settings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(settings)
-      });
+      // Validate settings before saving
+      const validation = paymentSettingsService.validateSettings(settings);
+      if (!validation.valid) {
+        toast({
+          title: "Validation Error",
+          description: validation.errors[0],
+        });
+        setSaving(false);
+        return;
+      }
 
-      const data = await response.json();
+      const response = await paymentSettingsService.updateSettings(settings);
 
-      if (data.success) {
+      if (response.success) {
         setShowSuccess(true);
         toast({
           title: "✅ Settings Saved Successfully!",
-          description: "Payment gateway configurations have been updated and applied to the backend."
+          description:
+            "Payment gateway configurations have been updated and applied to the backend.",
         });
         fetchSettings(); // Refresh settings
 
         // Hide success message after 3 seconds
         setTimeout(() => setShowSuccess(false), 3000);
       } else {
-        throw new Error(data.message);
+        throw new Error(response.message || "Failed to save settings");
       }
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to save settings"
+        description: error.message || "Failed to save settings",
       });
     } finally {
       setSaving(false);
     }
   };
 
-  const testConnection = async (provider: 'paypal' | 'stripe') => {
+  const testConnection = async (provider: "paypal" | "stripe") => {
     try {
       setTesting(provider);
-      const token = localStorage.getItem('token');
 
-      const response = await fetch(`${API_URL}/payment-settings/test/${provider}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
+      if (provider === "stripe") {
+        // Test Stripe using frontend SDK
+        if (!settings.stripe.publishableKey) {
+          throw new Error("Publishable key is required");
         }
-      });
 
-      const data = await response.json();
+        try {
+          const stripe = await loadStripe(settings.stripe.publishableKey);
 
-      if (data.success) {
-        setTestResults(prev => ({
-          ...prev,
-          [provider]: { success: true, message: data.message }
-        }));
-        toast({
-          title: "✅ Connection Successful!",
-          description: `${provider.toUpperCase()} connection test passed. Your credentials are working correctly.`,
-        });
+          if (!stripe) {
+            throw new Error(
+              "Invalid publishable key - Stripe failed to initialize"
+            );
+          }
+
+          setTestResults((prev) => ({
+            ...prev,
+            stripe: {
+              success: true,
+              message:
+                "Stripe SDK initialized successfully with your publishable key",
+            },
+          }));
+
+          toast({
+            title: "✅ Stripe Connection Successful!",
+            description:
+              "Your publishable key is valid and Stripe SDK initialized correctly. You can now use Stripe Elements in your frontend.",
+          });
+        } catch (stripeError: any) {
+          throw new Error(
+            stripeError.message || "Failed to initialize Stripe SDK"
+          );
+        }
       } else {
-        setTestResults(prev => ({
-          ...prev,
-          [provider]: { success: false, message: data.message }
-        }));
-        throw new Error(data.message);
+        // Test PayPal using backend API
+        const response = await paymentSettingsService.testConnection(provider);
+
+        if (response.success) {
+          setTestResults((prev) => ({
+            ...prev,
+            [provider]: { success: true, message: response.message },
+          }));
+          toast({
+            title: "✅ Connection Successful!",
+            description: `${provider.toUpperCase()} connection test passed. Your credentials are working correctly.`,
+          });
+        } else {
+          setTestResults((prev) => ({
+            ...prev,
+            [provider]: { success: false, message: response.message },
+          }));
+          throw new Error(response.message);
+        }
       }
     } catch (error: any) {
-      setTestResults(prev => ({
+      setTestResults((prev) => ({
         ...prev,
-        [provider]: { success: false, message: error.message }
+        [provider]: { success: false, message: error.message },
       }));
       toast({
         title: "❌ Connection Failed",
-        description: error.message || `Failed to connect to ${provider}`
+        description: error.message || `Failed to connect to ${provider}`,
       });
     } finally {
       setTesting(null);
@@ -191,34 +202,40 @@ export default function PaymentProcessorsPage() {
   };
 
   const updatePayPalSettings = (field: string, value: any) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       paypal: {
         ...prev.paypal,
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
   const updateStripeSettings = (field: string, value: any) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       stripe: {
         ...prev.stripe,
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
   // Check if PayPal is properly configured
   const isPayPalConfigured = () => {
-    return settings.paypal.clientId && settings.paypal.clientSecret && settings.paypal.clientId.length > 10;
+    return (
+      settings.paypal.clientId &&
+      settings.paypal.clientSecret &&
+      settings.paypal.clientId.length > 10
+    );
   };
 
   // Check if Stripe is properly configured
   const isStripeConfigured = () => {
-    return settings.stripe.publishableKey && settings.stripe.secretKey &&
-      settings.stripe.publishableKey.length > 10 && settings.stripe.secretKey.length > 10;
+    return (
+      settings.stripe.publishableKey &&
+      settings.stripe.publishableKey.length > 10
+    );
   };
 
   if (loading) {
@@ -236,14 +253,17 @@ export default function PaymentProcessorsPage() {
         <Alert className="bg-green-50 border-green-200 animate-in slide-in-from-top">
           <CheckCircle2 className="h-5 w-5 text-green-600" />
           <AlertDescription className="text-green-800 font-medium">
-            Payment settings have been saved and applied successfully! Your payment gateways are now configured.
+            Payment settings have been saved and applied successfully! Your
+            payment gateways are now configured.
           </AlertDescription>
         </Alert>
       )}
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Payment Processors</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Payment Processors
+          </h1>
           <p className="text-gray-500 dark:text-gray-400">
             Configure PayPal and Stripe payment gateways with live/sandbox modes
           </p>
@@ -278,8 +298,13 @@ export default function PaymentProcessorsPage() {
                   )}
                 </p>
               </div>
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${settings.paypal.enabled && isPayPalConfigured() ? 'bg-green-100' : 'bg-gray-100'
-                }`}>
+              <div
+                className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                  settings.paypal.enabled && isPayPalConfigured()
+                    ? "bg-green-100"
+                    : "bg-gray-100"
+                }`}
+              >
                 {settings.paypal.enabled && isPayPalConfigured() ? (
                   <CheckCircle2 className="w-6 h-6 text-green-600" />
                 ) : (
@@ -289,7 +314,8 @@ export default function PaymentProcessorsPage() {
             </div>
             {settings.paypal.enabled && (
               <p className="text-xs text-muted-foreground mt-2">
-                Mode: {settings.paypal.mode === 'sandbox' ? '🧪 Sandbox' : '🚀 Live'}
+                Mode:{" "}
+                {settings.paypal.mode === "sandbox" ? "🧪 Sandbox" : "🚀 Live"}
               </p>
             )}
           </CardContent>
@@ -308,8 +334,13 @@ export default function PaymentProcessorsPage() {
                   )}
                 </p>
               </div>
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${settings.stripe.enabled && isStripeConfigured() ? 'bg-green-100' : 'bg-gray-100'
-                }`}>
+              <div
+                className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                  settings.stripe.enabled && isStripeConfigured()
+                    ? "bg-green-100"
+                    : "bg-gray-100"
+                }`}
+              >
                 {settings.stripe.enabled && isStripeConfigured() ? (
                   <CheckCircle2 className="w-6 h-6 text-green-600" />
                 ) : (
@@ -319,7 +350,7 @@ export default function PaymentProcessorsPage() {
             </div>
             {settings.stripe.enabled && (
               <p className="text-xs text-muted-foreground mt-2">
-                Mode: {settings.stripe.mode === 'test' ? '🧪 Test' : '🚀 Live'}
+                Mode: {settings.stripe.mode === "test" ? "🧪 Test" : "🚀 Live"}
               </p>
             )}
           </CardContent>
@@ -331,10 +362,13 @@ export default function PaymentProcessorsPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Total Active</p>
                 <p className="text-2xl font-bold mt-1">
-                  {[
-                    settings.paypal.enabled && isPayPalConfigured(),
-                    settings.stripe.enabled && isStripeConfigured()
-                  ].filter(Boolean).length} / 2
+                  {
+                    [
+                      settings.paypal.enabled && isPayPalConfigured(),
+                      settings.stripe.enabled && isStripeConfigured(),
+                    ].filter(Boolean).length
+                  }{" "}
+                  / 2
                 </p>
               </div>
               <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -358,7 +392,9 @@ export default function PaymentProcessorsPage() {
               </div>
               <div>
                 <CardTitle className="text-lg">PayPal</CardTitle>
-                <CardDescription>Accept payments through PayPal</CardDescription>
+                <CardDescription>
+                  Accept payments through PayPal
+                </CardDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -368,14 +404,19 @@ export default function PaymentProcessorsPage() {
                   Configured
                 </Badge>
               ) : (
-                <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                <Badge
+                  variant="secondary"
+                  className="bg-yellow-50 text-yellow-700 border-yellow-200"
+                >
                   <AlertCircle className="w-3 h-3 mr-1" />
                   Not Configured
                 </Badge>
               )}
               <Switch
                 checked={settings.paypal.enabled}
-                onCheckedChange={(checked) => updatePayPalSettings('enabled', checked)}
+                onCheckedChange={(checked) =>
+                  updatePayPalSettings("enabled", checked)
+                }
               />
             </div>
           </div>
@@ -388,15 +429,19 @@ export default function PaymentProcessorsPage() {
               <Label>Environment Mode</Label>
               <div className="flex gap-2">
                 <Button
-                  variant={settings.paypal.mode === 'sandbox' ? 'default' : 'outline'}
-                  onClick={() => updatePayPalSettings('mode', 'sandbox')}
+                  variant={
+                    settings.paypal.mode === "sandbox" ? "default" : "outline"
+                  }
+                  onClick={() => updatePayPalSettings("mode", "sandbox")}
                   className="flex-1"
                 >
                   Sandbox (Test)
                 </Button>
                 <Button
-                  variant={settings.paypal.mode === 'live' ? 'default' : 'outline'}
-                  onClick={() => updatePayPalSettings('mode', 'live')}
+                  variant={
+                    settings.paypal.mode === "live" ? "default" : "outline"
+                  }
+                  onClick={() => updatePayPalSettings("mode", "live")}
                   className="flex-1"
                 >
                   Live (Production)
@@ -412,7 +457,9 @@ export default function PaymentProcessorsPage() {
                   id="paypal-client-id"
                   type="text"
                   value={settings.paypal.clientId}
-                  onChange={(e) => updatePayPalSettings('clientId', e.target.value)}
+                  onChange={(e) =>
+                    updatePayPalSettings("clientId", e.target.value)
+                  }
                   placeholder="AeA1QIZXiflr..."
                 />
               </div>
@@ -422,7 +469,9 @@ export default function PaymentProcessorsPage() {
                   id="paypal-client-secret"
                   type="password"
                   value={settings.paypal.clientSecret}
-                  onChange={(e) => updatePayPalSettings('clientSecret', e.target.value)}
+                  onChange={(e) =>
+                    updatePayPalSettings("clientSecret", e.target.value)
+                  }
                   placeholder="EL-RyYPKPh5u..."
                 />
               </div>
@@ -431,26 +480,43 @@ export default function PaymentProcessorsPage() {
             <Alert>
               <Key className="h-4 w-4" />
               <AlertDescription>
-                Get your PayPal credentials from your <a href="https://developer.paypal.com/dashboard/" target="_blank" className="underline">PayPal Developer Dashboard</a>.
-                Use sandbox credentials for testing and live credentials for production.
+                Get your PayPal credentials from your{" "}
+                <a
+                  href="https://developer.paypal.com/dashboard/"
+                  target="_blank"
+                  className="underline"
+                >
+                  PayPal Developer Dashboard
+                </a>
+                . Use sandbox credentials for testing and live credentials for
+                production.
               </AlertDescription>
             </Alert>
 
             {/* Test Results */}
             {testResults.paypal && (
-              <Alert className={testResults.paypal.success ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}>
+              <Alert
+                className={
+                  testResults.paypal.success
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }
+              >
                 {testResults.paypal.success ? (
                   <>
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <AlertDescription className="text-green-800">
-                      ✅ Connection successful! PayPal {settings.paypal.mode} credentials are working correctly.
+                      ✅ Connection successful! PayPal {settings.paypal.mode}{" "}
+                      credentials are working correctly.
                     </AlertDescription>
                   </>
                 ) : (
                   <>
                     <XCircle className="h-4 w-4 text-red-600" />
                     <AlertDescription className="text-red-800">
-                      ❌ Connection failed: {testResults.paypal.message || "Please check your credentials"}
+                      ❌ Connection failed:{" "}
+                      {testResults.paypal.message ||
+                        "Please check your credentials"}
                     </AlertDescription>
                   </>
                 )}
@@ -460,10 +526,14 @@ export default function PaymentProcessorsPage() {
             <div className="flex justify-end gap-2 pt-4 border-t">
               <Button
                 variant="outline"
-                onClick={() => testConnection('paypal')}
-                disabled={!settings.paypal.clientId || !settings.paypal.clientSecret || testing === 'paypal'}
+                onClick={() => testConnection("paypal")}
+                disabled={
+                  !settings.paypal.clientId ||
+                  !settings.paypal.clientSecret ||
+                  testing === "paypal"
+                }
               >
-                {testing === 'paypal' ? (
+                {testing === "paypal" ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Testing...
@@ -490,7 +560,9 @@ export default function PaymentProcessorsPage() {
               </div>
               <div>
                 <CardTitle className="text-lg">Stripe</CardTitle>
-                <CardDescription>Accept cards and other payment methods</CardDescription>
+                <CardDescription>
+                  Accept cards and other payment methods
+                </CardDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -500,14 +572,19 @@ export default function PaymentProcessorsPage() {
                   Configured
                 </Badge>
               ) : (
-                <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                <Badge
+                  variant="secondary"
+                  className="bg-yellow-50 text-yellow-700 border-yellow-200"
+                >
                   <AlertCircle className="w-3 h-3 mr-1" />
                   Not Configured
                 </Badge>
               )}
               <Switch
                 checked={settings.stripe.enabled}
-                onCheckedChange={(checked) => updateStripeSettings('enabled', checked)}
+                onCheckedChange={(checked) =>
+                  updateStripeSettings("enabled", checked)
+                }
               />
             </div>
           </div>
@@ -520,15 +597,19 @@ export default function PaymentProcessorsPage() {
               <Label>Environment Mode</Label>
               <div className="flex gap-2">
                 <Button
-                  variant={settings.stripe.mode === 'test' ? 'default' : 'outline'}
-                  onClick={() => updateStripeSettings('mode', 'test')}
+                  variant={
+                    settings.stripe.mode === "test" ? "default" : "outline"
+                  }
+                  onClick={() => updateStripeSettings("mode", "test")}
                   className="flex-1"
                 >
                   Test Mode
                 </Button>
                 <Button
-                  variant={settings.stripe.mode === 'live' ? 'default' : 'outline'}
-                  onClick={() => updateStripeSettings('mode', 'live')}
+                  variant={
+                    settings.stripe.mode === "live" ? "default" : "outline"
+                  }
+                  onClick={() => updateStripeSettings("mode", "live")}
                   className="flex-1"
                 >
                   Live Mode
@@ -544,17 +625,23 @@ export default function PaymentProcessorsPage() {
                   id="stripe-publishable"
                   type="text"
                   value={settings.stripe.publishableKey}
-                  onChange={(e) => updateStripeSettings('publishableKey', e.target.value)}
+                  onChange={(e) =>
+                    updateStripeSettings("publishableKey", e.target.value)
+                  }
                   placeholder="pk_test_... or pk_live_..."
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="stripe-secret">Secret Key</Label>
+                <Label htmlFor="stripe-secret">
+                  Secret Key (Optional - Backend Only)
+                </Label>
                 <Input
                   id="stripe-secret"
                   type="password"
                   value={settings.stripe.secretKey}
-                  onChange={(e) => updateStripeSettings('secretKey', e.target.value)}
+                  onChange={(e) =>
+                    updateStripeSettings("secretKey", e.target.value)
+                  }
                   placeholder="sk_test_... or sk_live_..."
                 />
               </div>
@@ -566,7 +653,9 @@ export default function PaymentProcessorsPage() {
                 id="stripe-webhook"
                 type="password"
                 value={settings.stripe.webhookSecret}
-                onChange={(e) => updateStripeSettings('webhookSecret', e.target.value)}
+                onChange={(e) =>
+                  updateStripeSettings("webhookSecret", e.target.value)
+                }
                 placeholder="whsec_..."
               />
             </div>
@@ -574,26 +663,44 @@ export default function PaymentProcessorsPage() {
             <Alert>
               <Key className="h-4 w-4" />
               <AlertDescription>
-                Get your Stripe API keys from your <a href="https://dashboard.stripe.com/apikeys" target="_blank" className="underline">Stripe Dashboard</a>.
-                Use test keys (pk_test, sk_test) for testing and live keys (pk_live, sk_live) for production.
+                Get your Stripe publishable key from your{" "}
+                <a
+                  href="https://dashboard.stripe.com/apikeys"
+                  target="_blank"
+                  className="underline font-medium"
+                >
+                  Stripe Dashboard
+                </a>
+                . The publishable key is safe to use in your frontend code.
+                Secret key and webhook secret are only needed if you're
+                processing payments on the backend.
               </AlertDescription>
             </Alert>
 
             {/* Test Results */}
             {testResults.stripe && (
-              <Alert className={testResults.stripe.success ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}>
+              <Alert
+                className={
+                  testResults.stripe.success
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }
+              >
                 {testResults.stripe.success ? (
                   <>
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <AlertDescription className="text-green-800">
-                      ✅ Connection successful! Stripe {settings.stripe.mode} credentials are working correctly.
+                      ✅ Connection successful! Stripe {settings.stripe.mode}{" "}
+                      credentials are working correctly.
                     </AlertDescription>
                   </>
                 ) : (
                   <>
                     <XCircle className="h-4 w-4 text-red-600" />
                     <AlertDescription className="text-red-800">
-                      ❌ Connection failed: {testResults.stripe.message || "Please check your credentials"}
+                      ❌ Connection failed:{" "}
+                      {testResults.stripe.message ||
+                        "Please check your credentials"}
                     </AlertDescription>
                   </>
                 )}
@@ -603,10 +710,12 @@ export default function PaymentProcessorsPage() {
             <div className="flex justify-end gap-2 pt-4 border-t">
               <Button
                 variant="outline"
-                onClick={() => testConnection('stripe')}
-                disabled={!settings.stripe.secretKey || testing === 'stripe'}
+                onClick={() => testConnection("stripe")}
+                disabled={
+                  !settings.stripe.publishableKey || testing === "stripe"
+                }
               >
-                {testing === 'stripe' ? (
+                {testing === "stripe" ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Testing...
@@ -635,19 +744,24 @@ export default function PaymentProcessorsPage() {
           <Alert>
             <Key className="h-4 w-4" />
             <AlertDescription>
-              All API keys and secrets are encrypted and stored securely in the database.
-              Settings are applied immediately to the backend payment configuration.
+              All API keys and secrets are encrypted and stored securely in the
+              database. Settings are applied immediately to the backend payment
+              configuration.
             </AlertDescription>
           </Alert>
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <h4 className="font-medium mb-2">PCI Compliance</h4>
-              <p className="text-gray-500">All processors maintain PCI DSS Level 1 compliance</p>
+              <p className="text-gray-500">
+                All processors maintain PCI DSS Level 1 compliance
+              </p>
             </div>
             <div>
               <h4 className="font-medium mb-2">Data Protection</h4>
-              <p className="text-gray-500">Payment data is tokenized and never stored locally</p>
+              <p className="text-gray-500">
+                Payment data is tokenized and never stored locally
+              </p>
             </div>
           </div>
 
