@@ -41,7 +41,7 @@ import {
   StickyNote,
   BookOpen,
   RefreshCw,
-  User
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -129,6 +129,12 @@ const paymentItems = [
     badge: null,
   },
   {
+    title: "Stripe Subscriptions",
+    href: "/stripe-subscriptions",
+    icon: CreditCard,
+    badge: null,
+  },
+  {
     title: "Invoices",
     href: "/invoices",
     icon: Receipt,
@@ -145,7 +151,7 @@ const paymentItems = [
     href: "/transactions",
     icon: ArrowRightLeft,
     badge: null,
-  }
+  },
 ];
 
 const billingItems = [
@@ -364,7 +370,7 @@ interface DashboardSidebarProps {
 export function DashboardSidebar({
   collapsed = false,
   mobileMenuOpen = false,
-  onMobileMenuClose
+  onMobileMenuClose,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
@@ -375,8 +381,8 @@ export function DashboardSidebar({
     };
 
     checkIsMobile();
-    window.addEventListener('resize', checkIsMobile);
-    return () => window.removeEventListener('resize', checkIsMobile);
+    window.addEventListener("resize", checkIsMobile);
+    return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
 
   const handleLinkClick = () => {
@@ -385,10 +391,14 @@ export function DashboardSidebar({
     }
   };
 
-  const NavItem = ({ item, collapsed: collapsed, isMobile: mobile }: {
-    item: typeof mainNavItems[0],
-    collapsed: boolean,
-    isMobile: boolean
+  const NavItem = ({
+    item,
+    collapsed: collapsed,
+    isMobile: mobile,
+  }: {
+    item: (typeof mainNavItems)[0];
+    collapsed: boolean;
+    isMobile: boolean;
   }) => {
     const isActive = pathname === item.href;
     const Icon = item.icon;
@@ -406,10 +416,14 @@ export function DashboardSidebar({
         )}
       >
         <div className="flex items-center gap-3">
-          <Icon className={cn(
-            "w-5 h-5 shrink-0",
-            isActive ? "text-blue-700 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
-          )} />
+          <Icon
+            className={cn(
+              "w-5 h-5 shrink-0",
+              isActive
+                ? "text-blue-700 dark:text-blue-400"
+                : "text-gray-500 dark:text-gray-400"
+            )}
+          />
           {(!collapsed || mobile) && (
             <span className="font-medium text-sm">{item.title}</span>
           )}
@@ -446,15 +460,17 @@ export function DashboardSidebar({
       )}
 
       {/* Sidebar */}
-      <div className={cn(
-        "fixed left-0 top-0 h-screen overflow-y-auto  bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-r border-gray-200/50 dark:border-gray-800/50 transition-all duration-300 z-40 shadow-lg ",
-        // Desktop behavior
-        "lg:translate-x-0",
-        collapsed && !isMobile ? "lg:w-20" : "lg:w-64",
-        // Mobile behavior
-        isMobile && !mobileMenuOpen && "-translate-x-full",
-        isMobile ? "w-64" : ""
-      )}>
+      <div
+        className={cn(
+          "fixed left-0 top-0 h-screen overflow-y-auto  bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-r border-gray-200/50 dark:border-gray-800/50 transition-all duration-300 z-40 shadow-lg ",
+          // Desktop behavior
+          "lg:translate-x-0",
+          collapsed && !isMobile ? "lg:w-20" : "lg:w-64",
+          // Mobile behavior
+          isMobile && !mobileMenuOpen && "-translate-x-full",
+          isMobile ? "w-64" : ""
+        )}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200/50 dark:border-gray-800/50 h-16">
           {(!collapsed || isMobile) && (
